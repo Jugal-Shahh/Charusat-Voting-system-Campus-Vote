@@ -200,23 +200,36 @@ def parse_voter_id(
 
 def get_available_institutes(db_conn) -> list:
     """
-    Return list of institute_codes that have at least one voter imported.
+    Return list of institute_codes that have configured ID patterns.
     Used by the UI to decide which institutes are selectable vs disabled.
     """
     rows = db_conn.execute(
-        "SELECT DISTINCT institute FROM voters WHERE institute IS NOT NULL"
+        "SELECT DISTINCT institute_code FROM institute_id_patterns ORDER BY institute_code"
+    ).fetchall()
+    if rows:
+        return [row[0] if not hasattr(row, "keys") else row["institute_code"] for row in rows]
+    rows = db_conn.execute(
+        "SELECT DISTINCT institute FROM voters WHERE institute IS NOT NULL ORDER BY institute"
     ).fetchall()
     return [row[0] if not hasattr(row, "keys") else row["institute"] for row in rows]
 
 
 def get_available_departments(db_conn, institute_code: str) -> list:
     """
-    Return list of departments within an institute that have imported voters.
+    Return list of department codes configured for an institute.
     """
+    code = (institute_code or "").strip().upper()
+    rows = db_conn.execute(
+        "SELECT department_code FROM institute_id_patterns "
+        "WHERE UPPER(institute_code) = ? ORDER BY department_code",
+        (code,),
+    ).fetchall()
+    if rows:
+        return [row[0] if not hasattr(row, "keys") else row["department_code"] for row in rows]
     rows = db_conn.execute(
         "SELECT DISTINCT department FROM voters "
-        "WHERE institute = ? AND department IS NOT NULL",
-        (institute_code,),
+        "WHERE UPPER(institute) = ? AND department IS NOT NULL ORDER BY department",
+        (code,),
     ).fetchall()
     return [row[0] if not hasattr(row, "keys") else row["department"] for row in rows]
 

@@ -46,7 +46,7 @@
             {% if inst in available_institutes %}
               <option value="{{ inst }}" {% if scope_institute == inst %}selected{% endif %}>{{ inst }}</option>
             {% else %}
-              <option value="{{ inst }}" disabled>{{ inst }} (No voter data)</option>
+              <option value="{{ inst }}" disabled>{{ inst }} (No pattern defined)</option>
             {% endif %}
           {% endfor %}
         </select>
@@ -57,7 +57,7 @@
         <select id="scope_department" name="scope_department" class="form-select">
           <option value="">-- Select Institute First --</option>
         </select>
-        <p style="font-size:11px; color:var(--text-muted); margin-top:6px;">Only departments with imported voter data will appear here.</p>
+        <p style="font-size:11px; color:var(--text-muted); margin-top:6px;">Select a department to scope this election.</p>
       </div>
 
       <div style="margin-bottom:24px; padding:12px 14px; background:var(--input-bg); border-radius:var(--radius); border:1px solid #CBD5E1;">

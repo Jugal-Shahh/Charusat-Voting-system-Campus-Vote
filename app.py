@@ -23,7 +23,7 @@ from flask import (
     url_for, session, flash, g, jsonify, abort
 )
 from werkzeug.security import check_password_hash, generate_password_hash
-from id_parser import load_patterns, parse_voter_id
+from id_parser import load_patterns, parse_voter_id, get_available_institutes, get_available_departments
 
 # ---------------------------------------------------------------------------
 # Setup
@@ -584,11 +584,8 @@ def admin_create_system():
     """Create a new voting system."""
     db = get_db()
 
-    # Get institutes with actual data
-    available_institutes = [
-        row["institute"] for row in
-        db.execute("SELECT DISTINCT institute FROM voters WHERE institute IS NOT NULL ORDER BY institute").fetchall()
-    ]
+    # Get institutes with pattern definitions / configured data
+    available_institutes = get_available_institutes(db)
 
     if request.method == "POST":
         name = request.form.get("name", "").strip()
@@ -612,12 +609,6 @@ def admin_create_system():
             errors.append("Please select an institute.")
         if scope_type == "department" and (not scope_institute or not scope_department):
             errors.append("Please select both an institute and department.")
-
-        # Verify data exists for selected scope
-        if not errors:
-            eligible = get_eligible_voter_count(db, scope_type, scope_institute, scope_department)
-            if eligible == 0:
-                errors.append("No voter data available for the selected scope. Cannot create election.")
 
         if errors:
             for err in errors:
@@ -769,13 +760,10 @@ def admin_audit(code):
 
 @app.route("/api/departments/<institute>")
 def api_departments(institute):
-    """Return departments with voter data for a given institute."""
+    """Return departments for a given institute from pattern definitions."""
     db = get_db()
-    rows = db.execute(
-        "SELECT DISTINCT department FROM voters WHERE institute = ? AND department IS NOT NULL ORDER BY department",
-        (institute,)
-    ).fetchall()
-    return jsonify([row["department"] for row in rows])
+    depts = get_available_departments(db, institute)
+    return jsonify(depts)
 
 
 # ===================================================================
