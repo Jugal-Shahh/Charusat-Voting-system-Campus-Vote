@@ -23,6 +23,7 @@ from flask import (
     url_for, session, flash, g, jsonify, abort
 )
 from werkzeug.security import check_password_hash, generate_password_hash
+from id_parser import load_patterns, parse_voter_id
 
 # ---------------------------------------------------------------------------
 # Setup
@@ -158,19 +159,31 @@ def get_eligible_voter_count(db, scope_type, scope_institute=None, scope_departm
     return 0
 
 
-def voter_is_eligible(db, voter_id, vs):
-    """Check if a voter is eligible for a voting system based on its scope."""
-    voter = db.execute("SELECT * FROM voters WHERE voter_id = ?", (voter_id,)).fetchone()
-    if not voter or not voter["institute"]:
+def voter_is_eligible(db, voter_id, vs, voter_institute=None, voter_department=None):
+    """
+    Check if a voter is eligible for a voting system based on its scope.
+
+    NOTE: Eligibility is determined directly from the signed-in person's
+    verified OAuth email attributes (institute & department), NOT by gating
+    on a pre-existing row in the voters table (which serves as reference/backup).
+    """
+    # Prefer explicitly passed / session attributes; fallback to DB record if not provided
+    if not voter_institute:
+        voter = db.execute("SELECT * FROM voters WHERE voter_id = ?", (voter_id,)).fetchone()
+        if voter:
+            voter_institute = voter_institute or voter["institute"]
+            voter_department = voter_department or voter["department"]
+
+    if not voter_institute:
         return False
 
     if vs["scope_type"] == "university":
         return True
     elif vs["scope_type"] == "institute":
-        return voter["institute"] == vs["scope_institute"]
+        return voter_institute == vs["scope_institute"]
     elif vs["scope_type"] == "department":
-        return (voter["institute"] == vs["scope_institute"] and
-                voter["department"] == vs["scope_department"])
+        return (voter_institute == vs["scope_institute"] and
+                voter_department == vs["scope_department"])
     return False
 
 
@@ -256,48 +269,98 @@ def auth_google_callback():
         flash("Google sign-in failed. Please try again.", "error")
         return redirect(url_for("home"))
 
-    userinfo = token.get("userinfo", {})
-    email = userinfo.get("email", "")
-    name = userinfo.get("name", "")
+    try:
+        userinfo = token.get("userinfo", {}) if token else {}
+        email = (userinfo.get("email") or "").strip()
+        name = (userinfo.get("name") or "").strip()
 
-    # SERVER-SIDE domain verification (hd param is a UI hint only)
-    if not email.lower().endswith("@" + CHARUSAT_DOMAIN):
-        flash(f"Only @{CHARUSAT_DOMAIN} accounts can sign in.", "error")
-        return redirect(url_for("home"))
+        if not email:
+            flash("Unable to retrieve email from Google account. Please try again.", "error")
+            return redirect(url_for("home"))
 
-    # Parse voter_id from email
-    voter_id = parse_voter_id_from_email(email)
+        email_lower = email.lower()
+        # Case 1: Wrong email domain (accept @charusat.edu.in, @charusat.ac.in, or configured domain)
+        is_charusat = (
+            email_lower.endswith("@charusat.edu.in") or
+            email_lower.endswith("@charusat.ac.in") or
+            email_lower.endswith("@" + CHARUSAT_DOMAIN.lower())
+        )
+        if not is_charusat:
+            flash("Please sign in with your official CHARUSAT email.", "error")
+            return redirect(url_for("home"))
 
-    # Look up voter record
-    db = get_db()
-    voter = db.execute("SELECT * FROM voters WHERE voter_id = ?", (voter_id,)).fetchone()
+        local_part = email.split("@")[0].strip()
+        db = get_db()
+        patterns = load_patterns(db)
 
-    # Store OAuth info in session regardless of voter match
-    session["google_email"] = email.lower()
-    session["google_name"] = name
+        # Case 4: Parsing exception safety
+        try:
+            parse_result = parse_voter_id(local_part, patterns)
+        except Exception:
+            flash("We couldn't verify your student ID from this account. Please contact the election admin if you believe this is an error.", "error")
+            return redirect(url_for("home"))
 
-    if voter:
-        session["voter_id"] = voter["voter_id"]
-        session["voter_name"] = voter["full_name"]
-        session["voter_institute"] = voter["institute"]
-        session["voter_department"] = voter["department"]
-    else:
-        # Valid CHARUSAT user but not on any voter roll
+        flow = session.get("auth_flow")
+        # Case 2: Right domain, but ID doesn't match any known institute/department pattern
+        if not parse_result.matched:
+            # If signing up as admin, allow non-student CHARUSAT emails (faculty/staff)
+            if flow == "admin_register":
+                session["google_email"] = email_lower
+                session["google_name"] = name or local_part
+                session.pop("auth_flow", None)
+                return redirect(url_for("admin_register"))
+
+            flash("We couldn't verify your student ID from this account. Please contact the election admin if you believe this is an error.", "error")
+            return redirect(url_for("home"))
+
+        voter_id = local_part.upper()
+        display_name = name if name else voter_id
+
+        # Store OAuth info in session (eligibility comes directly from verified OAuth parsing)
+        session["google_email"] = email_lower
+        session["google_name"] = display_name
         session["voter_id"] = voter_id
-        session["voter_name"] = name or voter_id
-        session["voter_institute"] = None
-        session["voter_department"] = None
+        session["voter_name"] = display_name
+        session["voter_institute"] = parse_result.institute
+        session["voter_department"] = parse_result.department
+        session["voter_admission_year"] = parse_result.admission_year
+        session["voter_is_diploma"] = parse_result.is_diploma
 
-    # Check if they were trying to go somewhere specific
-    flow = session.pop("auth_flow", None)
-    next_url = session.pop("next_url", None)
+        # Upsert into voters table as backup/reference and to support audit log foreign key joins
+        try:
+            existing = db.execute("SELECT full_name FROM voters WHERE voter_id = ?", (voter_id,)).fetchone()
+            if existing:
+                stored_name = name if name else existing["full_name"]
+                db.execute(
+                    """UPDATE voters
+                       SET full_name = ?, institute = ?, department = ?, admission_year = ?, is_diploma = ?
+                       WHERE voter_id = ?""",
+                    (stored_name, parse_result.institute, parse_result.department, parse_result.admission_year, parse_result.is_diploma, voter_id)
+                )
+            else:
+                db.execute(
+                    """INSERT INTO voters (voter_id, full_name, institute, department, admission_year, is_diploma)
+                       VALUES (?, ?, ?, ?, ?, ?)""",
+                    (voter_id, display_name, parse_result.institute, parse_result.department, parse_result.admission_year, parse_result.is_diploma)
+                )
+            db.commit()
+        except Exception:
+            pass
 
-    if flow == "admin_register":
-        return redirect(url_for("admin_register"))
-    elif next_url:
-        return redirect(next_url)
-    else:
-        return redirect(url_for("voter_dashboard"))
+        # Check destination flow
+        session.pop("auth_flow", None)
+        next_url = session.pop("next_url", None)
+
+        if flow == "admin_register":
+            return redirect(url_for("admin_register"))
+        elif next_url:
+            return redirect(next_url)
+        else:
+            return redirect(url_for("voter_dashboard"))
+
+    except Exception:
+        flash("An unexpected error occurred during sign-in. Please try again.", "error")
+        return redirect(url_for("home"))
 
 
 @app.route("/auth/logout")
@@ -326,17 +389,19 @@ def voter_dashboard():
     """Show voting systems the signed-in voter is eligible for."""
     db = get_db()
     voter_id = session["voter_id"]
-    voter = db.execute("SELECT * FROM voters WHERE voter_id = ?", (voter_id,)).fetchone()
+    voter_institute = session.get("voter_institute")
+    voter_department = session.get("voter_department")
+    voter_name = session.get("voter_name", voter_id)
 
     # Find all open voting systems
     all_systems = db.execute(
         "SELECT * FROM voting_systems WHERE is_open = 1 ORDER BY created_at DESC"
     ).fetchall()
 
-    # Filter to ones this voter is eligible for
+    # Filter to ones this voter is eligible for based on verified OAuth attributes
     eligible_systems = []
     for vs in all_systems:
-        if voter and voter_is_eligible(db, voter_id, vs):
+        if voter_is_eligible(db, voter_id, vs, voter_institute, voter_department):
             already_voted = has_voted_in_system(db, voter_id, vs["id"])
             eligible_systems.append({
                 "id": vs["id"],
@@ -348,11 +413,14 @@ def voter_dashboard():
                 "already_voted": already_voted,
             })
 
+    voter_record = db.execute("SELECT * FROM voters WHERE voter_id = ?", (voter_id,)).fetchone()
+
     return render_template(
         "voter_dashboard.html",
-        voter=voter,
+        voter=voter_record,
+        voter_name=voter_name,
         eligible_systems=eligible_systems,
-        voter_on_roll=voter is not None,
+        voter_on_roll=bool(voter_institute),
     )
 
 
@@ -362,13 +430,13 @@ def join_by_code():
     code = request.form.get("code", "").strip().upper()
     if not code:
         flash("Please enter a voting system code.", "error")
-        return redirect(url_for("home"))
+        return redirect(url_for("voter_dashboard") if "voter_id" in session else url_for("home"))
 
     db = get_db()
     vs = db.execute("SELECT * FROM voting_systems WHERE code = ?", (code,)).fetchone()
     if not vs:
         flash("No voting system found with that code.", "error")
-        return redirect(url_for("home"))
+        return redirect(url_for("voter_dashboard") if "voter_id" in session else url_for("home"))
 
     return redirect(url_for("vote_page", code=code))
 
@@ -730,11 +798,13 @@ def vote_page(code):
         return redirect(url_for("home"))
 
     voter_id = session["voter_id"]
+    voter_institute = session.get("voter_institute")
+    voter_department = session.get("voter_department")
     voter = db.execute("SELECT * FROM voters WHERE voter_id = ?", (voter_id,)).fetchone()
 
-    # Check eligibility
-    if not voter or not voter_is_eligible(db, voter_id, vs):
-        flash("You are not eligible to vote in this election.", "error")
+    # Check eligibility based on verified OAuth attributes (Case 3)
+    if not voter_is_eligible(db, voter_id, vs, voter_institute, voter_department):
+        flash("This election isn't open to your institute/department.", "error")
         return redirect(url_for("voter_dashboard"))
 
     # Check if voting is open
@@ -752,6 +822,8 @@ def vote_page(code):
         (vs["id"],)
     ).fetchall()
 
+    voter_view = voter if voter else {"full_name": session.get("voter_name", voter_id), "voter_id": voter_id}
+
     if request.method == "POST":
         choices = request.form.getlist("vote")
         if not choices and request.form.get("vote"):
@@ -761,7 +833,7 @@ def vote_page(code):
 
         if not choices:
             flash("Please make a selection before submitting.", "error")
-            return render_template("vote.html", vs=vs, voter=voter, candidates=candidates)
+            return render_template("vote.html", vs=vs, voter=voter_view, candidates=candidates)
 
         if "NOTA" in choices:
             # NOTA selected -> 1 NOTA vote cast
@@ -769,7 +841,7 @@ def vote_page(code):
         else:
             if len(choices) > max_allowed:
                 flash(f"You can select at most {max_allowed} choice(s).", "error")
-                return render_template("vote.html", vs=vs, voter=voter, candidates=candidates)
+                return render_template("vote.html", vs=vs, voter=voter_view, candidates=candidates)
 
             vote_entries = []
             for cid in choices:
@@ -779,7 +851,7 @@ def vote_page(code):
                 ).fetchone()
                 if not cand:
                     flash("Invalid candidate selection.", "error")
-                    return render_template("vote.html", vs=vs, voter=voter, candidates=candidates)
+                    return render_template("vote.html", vs=vs, voter=voter_view, candidates=candidates)
                 vote_entries.append((cand["id"], 0))
 
         # Atomic: record vote entries + 1 turnout log entry
@@ -798,11 +870,11 @@ def vote_page(code):
         except Exception:
             db.rollback()
             flash("Something went wrong recording your vote. Please try again.", "error")
-            return render_template("vote.html", vs=vs, voter=voter, candidates=candidates)
+            return render_template("vote.html", vs=vs, voter=voter_view, candidates=candidates)
 
         return redirect(url_for("vote_thank_you", code=code))
 
-    return render_template("vote.html", vs=vs, voter=voter, candidates=candidates)
+    return render_template("vote.html", vs=vs, voter=voter_view, candidates=candidates)
 
 
 @app.route("/vote/<code>/thank-you")
@@ -875,34 +947,85 @@ def vote_results(code):
 @app.route("/dev/login", methods=["GET", "POST"])
 def dev_login():
     """
-    Development-only: simulate Google sign-in by entering a voter_id directly.
+    Development-only: simulate Google sign-in by entering a voter_id or email directly.
     Only available when OAuth is NOT configured.
     """
     if OAUTH_CONFIGURED:
         abort(404)
 
     if request.method == "POST":
-        voter_id = request.form.get("voter_id", "").strip().upper()
-        if not voter_id:
-            flash("Please enter a voter ID.", "error")
+        raw_input = request.form.get("voter_id", "").strip()
+        if not raw_input:
+            flash("Please enter a voter ID or email.", "error")
             return render_template("dev_login.html")
 
-        db = get_db()
-        voter = db.execute("SELECT * FROM voters WHERE voter_id = ?", (voter_id,)).fetchone()
-
-        session["google_email"] = f"{voter_id.lower()}@{CHARUSAT_DOMAIN}"
-        session["google_name"] = voter["full_name"] if voter else voter_id
-
-        if voter:
-            session["voter_id"] = voter["voter_id"]
-            session["voter_name"] = voter["full_name"]
-            session["voter_institute"] = voter["institute"]
-            session["voter_department"] = voter["department"]
+        # Support email or voter ID directly
+        if "@" in raw_input:
+            email_lower = raw_input.lower().strip()
+            is_charusat = (
+                email_lower.endswith("@charusat.edu.in") or
+                email_lower.endswith("@charusat.ac.in") or
+                email_lower.endswith("@" + CHARUSAT_DOMAIN.lower())
+            )
+            if not is_charusat:
+                flash("Please sign in with your official CHARUSAT email.", "error")
+                return render_template("dev_login.html")
+            local_part = email_lower.split("@")[0].strip()
+            email = email_lower
         else:
-            session["voter_id"] = voter_id
-            session["voter_name"] = voter_id
-            session["voter_institute"] = None
-            session["voter_department"] = None
+            local_part = raw_input.strip()
+            email = f"{local_part.lower()}@{CHARUSAT_DOMAIN}"
+
+        db = get_db()
+        patterns = load_patterns(db)
+
+        try:
+            parse_result = parse_voter_id(local_part, patterns)
+        except Exception:
+            flash("We couldn't verify your student ID from this account. Please contact the election admin if you believe this is an error.", "error")
+            return render_template("dev_login.html")
+
+        flow = session.get("auth_flow")
+        if not parse_result.matched:
+            if flow == "admin_register":
+                session["google_email"] = email
+                session["google_name"] = local_part
+                session.pop("auth_flow", None)
+                return redirect(url_for("admin_register"))
+
+            flash("We couldn't verify your student ID from this account. Please contact the election admin if you believe this is an error.", "error")
+            return render_template("dev_login.html")
+
+        voter_id = local_part.upper()
+        existing = db.execute("SELECT * FROM voters WHERE voter_id = ?", (voter_id,)).fetchone()
+        display_name = existing["full_name"] if (existing and existing["full_name"]) else voter_id
+
+        session["google_email"] = email
+        session["google_name"] = display_name
+        session["voter_id"] = voter_id
+        session["voter_name"] = display_name
+        session["voter_institute"] = parse_result.institute
+        session["voter_department"] = parse_result.department
+        session["voter_admission_year"] = parse_result.admission_year
+        session["voter_is_diploma"] = parse_result.is_diploma
+
+        try:
+            if existing:
+                db.execute(
+                    """UPDATE voters
+                       SET institute = ?, department = ?, admission_year = ?, is_diploma = ?
+                       WHERE voter_id = ?""",
+                    (parse_result.institute, parse_result.department, parse_result.admission_year, parse_result.is_diploma, voter_id)
+                )
+            else:
+                db.execute(
+                    """INSERT INTO voters (voter_id, full_name, institute, department, admission_year, is_diploma)
+                       VALUES (?, ?, ?, ?, ?, ?)""",
+                    (voter_id, display_name, parse_result.institute, parse_result.department, parse_result.admission_year, parse_result.is_diploma)
+                )
+            db.commit()
+        except Exception:
+            pass
 
         next_url = session.pop("next_url", None)
         flow = session.pop("auth_flow", None)
