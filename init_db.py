@@ -132,6 +132,15 @@ def _seed_default_admin(conn):
         print("       IMPORTANT: change this password before any real election.")
 
 
+def _ensure_patterns_table_migrated(conn):
+    """Ensure institute_id_patterns has the per-department schema."""
+    if _table_exists(conn, "institute_id_patterns"):
+        if not _table_has_column(conn, "institute_id_patterns", "department_code"):
+            print("  [!!] Old institute_id_patterns schema detected. Recreating with per-department schema...")
+            conn.execute("DROP TABLE institute_id_patterns")
+            conn.commit()
+
+
 def main():
     print(f"\n{'='*55}")
     print(f"  CharusatVote -- Database Init / Migration")
@@ -152,6 +161,9 @@ def main():
         # Check if migration from old schema is needed
         if _needs_migration(conn):
             _migrate_to_multi_tenant(conn)
+
+        # Migrate pattern table schema if needed
+        _ensure_patterns_table_migrated(conn)
 
         # Apply the new schema (CREATE IF NOT EXISTS is safe)
         _apply_schema(conn)

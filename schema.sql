@@ -17,32 +17,44 @@
 
 -- ============================================================
 -- Institute ID pattern definitions (data, not code).
--- Adding a new institute = INSERT a new row here, no code change.
+-- Adding a new department/institute = INSERT a new row here, no code change.
 -- ============================================================
 CREATE TABLE IF NOT EXISTS institute_id_patterns (
-    institute_code          TEXT PRIMARY KEY,
-    regex_pattern           TEXT NOT NULL,
-    department_codes        TEXT NOT NULL,      -- JSON array
-    diploma_marker_position TEXT NOT NULL       -- 'before_year'|'after_year'|'none'
+    institute_code      TEXT NOT NULL,
+    department_code     TEXT NOT NULL,
+    department_name     TEXT NOT NULL,
+    has_numeric_suffix  INTEGER NOT NULL DEFAULT 1,
+    diploma_allowed     INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (institute_code, department_code)
 );
 
 INSERT OR REPLACE INTO institute_id_patterns
-    (institute_code, regex_pattern, department_codes, diploma_marker_position)
-VALUES (
-    'CSPIT',
-    '^(D)?(\d{2})(CS|CE|IT|EC|ME|EE|CL|AIML)(\d{3})$',
-    '["CS","CE","IT","EC","ME","EE","CL","AIML"]',
-    'before_year'
-);
-
-INSERT OR REPLACE INTO institute_id_patterns
-    (institute_code, regex_pattern, department_codes, diploma_marker_position)
-VALUES (
-    'DEPSTAR',
-    '^(D)?(\d{2})(D)(CE|CS|IT)(\d{3})$',
-    '["CE","CS","IT"]',
-    'after_year'
-);
+    (institute_code, department_code, department_name, has_numeric_suffix, diploma_allowed)
+VALUES
+    ('IIIM',    'BBA',  'BBA',                    1, 0),
+    ('IIIM',    'MBA',  'MBA',                    1, 0),
+    ('RPCP',    'BPH',  'B.Pharm',                1, 0),
+    ('RPCP',    'MPH',  'M.Pharm',                1, 0),
+    ('PDPIAS',  'BSC',  'B.Sc',                   1, 0),
+    ('CSPIT',   'CS',   'Computer Science',       1, 1),
+    ('CSPIT',   'CE',   'Computer Engineering',   1, 1),
+    ('CSPIT',   'IT',   'Information Technology', 1, 1),
+    ('CSPIT',   'AIML', 'AI & ML',                1, 1),
+    ('CSPIT',   'CL',   'Civil Engineering',      1, 1),
+    ('CSPIT',   'EC',   'Electronics & Comm.',     1, 1),
+    ('CSPIT',   'ME',   'Mechanical Engineering', 1, 1),
+    ('CSPIT',   'EE',   'Electrical Engineering', 1, 1),
+    ('DEPSTAR', 'DCS',  'DEPSTAR CS',             1, 1),
+    ('DEPSTAR', 'DCE',  'DEPSTAR CE',             1, 1),
+    ('DEPSTAR', 'DIT',  'DEPSTAR IT',             1, 1),
+    ('CMPICA',  'BCA',  'BCA',                    1, 0),
+    ('CMPICA',  'MCA',  'MCA',                    1, 0),
+    ('CMPICA',  'BSIT', 'B.Sc IT',                1, 0),
+    ('CMPICA',  'MSIT', 'M.Sc IT',                1, 0),
+    ('BDIAS',   'BSMT', 'BSMT',                   1, 0),
+    ('BDIAS',   'BMIT', 'BMIT',                   1, 0),
+    ('ARIP',    'BPT',  'BPT (Bachelors)',        1, 0),
+    ('ARIP',    'MPT',  'MPT (Masters)',          1, 0);
 
 -- ============================================================
 -- Voters

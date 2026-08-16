@@ -69,13 +69,18 @@ def _ensure_voter_columns(conn) -> None:
 
 
 def _ensure_patterns_table(conn) -> None:
-    """Create institute_id_patterns and seed it if the table doesn't exist yet."""
+    """Create institute_id_patterns and seed it if the table doesn't exist or is outdated."""
     schema_path = PROJECT_ROOT / "schema.sql"
     if not schema_path.exists():
         print("WARNING: schema.sql not found; skipping pattern table creation.")
         return
-    # Re-running the schema is safe — it uses CREATE TABLE IF NOT EXISTS
-    # and INSERT OR IGNORE, so existing data is never overwritten.
+    try:
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(institute_id_patterns)")}
+        if cols and "department_code" not in cols:
+            conn.execute("DROP TABLE institute_id_patterns")
+            conn.commit()
+    except Exception:
+        pass
     conn.executescript(schema_path.read_text(encoding="utf-8"))
     conn.commit()
 

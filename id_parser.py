@@ -1,25 +1,26 @@
 """
-id_parser.py — CharusatVote ID-parsing engine (Phase 1).
+id_parser.py — CharusatVote ID-parsing engine (Data-driven per department).
 
 Architecture: parse-on-import, not parse-on-demand.
-  - Pattern definitions live in the `institute_id_patterns` DB table.
+  - Pattern definitions live in the `institute_id_patterns` DB table (one row per department).
+  - Shape: ^(d)?(\\d{2})(<department_code>)(\\d{3})?$
   - This module reads those definitions and applies them to raw voter IDs.
   - Eligibility checks downstream are plain SQL WHERE clauses on the
     pre-parsed columns (institute, department, admission_year, is_diploma).
 
 Public API
 ----------
-load_patterns(db_conn)  →  dict[str, InstitutePattern]
-parse_voter_id(voter_id, patterns)  →  ParseResult
+load_patterns(db_conn)  →  dict[str, list[DepartmentPattern]]
+parse_voter_id(voter_id, patterns, restrict_to_institute=None)  →  ParseResult
 
 Both functions have zero Flask dependency and are safe to call from
 import scripts, tests, or any future CLI/API layer.
 """
 
-import json
-import re
+from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Dict, Optional
+import re
+from typing import Dict, List, Optional
 
 
 # ---------------------------------------------------------------------------
@@ -27,19 +28,30 @@ from typing import Dict, Optional
 # ---------------------------------------------------------------------------
 
 @dataclass
-class InstitutePattern:
+class DepartmentPattern:
     """One row from institute_id_patterns, ready for regex matching."""
     institute_code: str
-    regex_pattern: str
-    department_codes: list          # parsed from JSON
-    diploma_marker_position: str   # 'before_year' | 'after_year' | 'none'
+    department_code: str
+    department_name: str
+    has_numeric_suffix: bool = True
+    diploma_allowed: bool = False
     _compiled: re.Pattern = field(default=None, init=False, repr=False)
 
     def __post_init__(self):
-        self._compiled = re.compile(self.regex_pattern)
+        dept_escaped = re.escape(self.department_code)
+        suffix = r"(\d{3})" if self.has_numeric_suffix else r"(\d{3})?"
+        if self.diploma_allowed:
+            pattern = rf"^(d)?(\d{{2}})({dept_escaped}){suffix}$"
+        else:
+            pattern = rf"^(\d{{2}})({dept_escaped}){suffix}$"
+        self._compiled = re.compile(pattern, re.IGNORECASE)
 
     def match(self, voter_id: str) -> Optional[re.Match]:
         return self._compiled.match(voter_id)
+
+
+# Backward compatibility alias
+InstitutePattern = DepartmentPattern
 
 
 @dataclass
@@ -71,39 +83,45 @@ class ParseResult:
 # Pattern loader
 # ---------------------------------------------------------------------------
 
-def load_patterns(db_conn) -> Dict[str, InstitutePattern]:
+def load_patterns(db_conn) -> Dict[str, List[DepartmentPattern]]:
     """
     Load all rows from institute_id_patterns and return a dict keyed by
-    institute_code (e.g. {'CSPIT': InstitutePattern(...), ...}).
+    institute_code (e.g. {'CSPIT': [DepartmentPattern(...), ...], ...}).
 
     Accepts any sqlite3.Connection (or object with an .execute method).
     """
     rows = db_conn.execute(
-        "SELECT institute_code, regex_pattern, department_codes, "
-        "       diploma_marker_position "
+        "SELECT institute_code, department_code, department_name, "
+        "       has_numeric_suffix, diploma_allowed "
         "FROM   institute_id_patterns"
     ).fetchall()
 
-    patterns: Dict[str, InstitutePattern] = {}
+    patterns: Dict[str, List[DepartmentPattern]] = defaultdict(list)
     for row in rows:
         # row may be sqlite3.Row (subscript by name) or plain tuple
         if hasattr(row, "keys"):
-            code = row["institute_code"]
-            regex = row["regex_pattern"]
-            depts = json.loads(row["department_codes"])
-            dmp = row["diploma_marker_position"]
+            inst_code = row["institute_code"]
+            dept_code = row["department_code"]
+            dept_name = row["department_name"]
+            has_num = bool(row["has_numeric_suffix"])
+            diploma_ok = bool(row["diploma_allowed"])
         else:
-            code, regex, depts_json, dmp = row
-            depts = json.loads(depts_json)
+            inst_code, dept_code, dept_name, has_num, diploma_ok = row
+            has_num = bool(has_num)
+            diploma_ok = bool(diploma_ok)
 
-        patterns[code] = InstitutePattern(
-            institute_code=code,
-            regex_pattern=regex,
-            department_codes=depts,
-            diploma_marker_position=dmp,
+        inst_key = inst_code.strip().upper()
+        patterns[inst_key].append(
+            DepartmentPattern(
+                institute_code=inst_key,
+                department_code=dept_code.strip().upper(),
+                department_name=dept_name,
+                has_numeric_suffix=has_num,
+                diploma_allowed=diploma_ok,
+            )
         )
 
-    return patterns
+    return dict(patterns)
 
 
 # ---------------------------------------------------------------------------
@@ -112,20 +130,20 @@ def load_patterns(db_conn) -> Dict[str, InstitutePattern]:
 
 def parse_voter_id(
     voter_id: str,
-    patterns: Dict[str, InstitutePattern],
+    patterns: Dict[str, List[DepartmentPattern]],
     restrict_to_institute: Optional[str] = None,
 ) -> ParseResult:
     """
-    Try to parse `voter_id` against the loaded institute patterns.
+    Try to parse `voter_id` against the loaded institute/department patterns.
 
     Parameters
     ----------
     voter_id : str
-        Raw voter ID string, e.g. '24AIML065' or 'D25AIML001'.
+        Raw voter ID string, e.g. '24AIML065', 'd25aiml001', '24bba001'.
     patterns : dict
         Dict returned by load_patterns().
     restrict_to_institute : str | None
-        If provided, ONLY the pattern for that institute is tried.
+        If provided, ONLY the patterns for that institute are tried.
         Non-matching IDs are flagged (matched=False) even if they
         would match a different institute's pattern.
 
@@ -136,69 +154,48 @@ def parse_voter_id(
         the ID doesn't fit the (restricted) pattern set.
     """
     voter_id = voter_id.strip()
+    if not voter_id:
+        return ParseResult(matched=False)
 
-    candidates = (
-        {restrict_to_institute: patterns[restrict_to_institute]}
-        if restrict_to_institute and restrict_to_institute in patterns
-        else patterns
-    )
+    if restrict_to_institute:
+        inst_key = restrict_to_institute.strip().upper()
+        candidate_lists = [patterns[inst_key]] if inst_key in patterns else []
+    else:
+        candidate_lists = list(patterns.values())
 
-    for institute_code, pattern in candidates.items():
-        m = pattern.match(voter_id)
-        if m is None:
-            continue
+    for dept_list in candidate_lists:
+        for pattern in dept_list:
+            m = pattern.match(voter_id)
+            if m is None:
+                continue
 
-        # Extract structured fields based on diploma_marker_position.
-        # The regex groups differ between institutes — this is intentional
-        # per spec §3.1: "implement it as a distinct per-institute pattern".
-        dmp = pattern.diploma_marker_position
+            if pattern.diploma_allowed:
+                # Group 1: optional 'd'/'D' prefix
+                # Group 2: 2-digit year
+                # Group 3: department code
+                # Group 4: 3-digit student number
+                is_diploma = 1 if (m.group(1) and m.group(1).upper() == "D") else 0
+                year = int(m.group(2))
+            else:
+                # Group 1: 2-digit year
+                # Group 2: department code
+                # Group 3: 3-digit student number
+                is_diploma = 0
+                year = int(m.group(1))
 
-        if dmp == "before_year":
-            # CSPIT: ^(D)?(\d{2})(CS|CE|IT|EC|ME|EE|CL|AIML)(\d{3})$
-            #  group 1 = optional 'D'
-            #  group 2 = 2-digit year
-            #  group 3 = department code
-            #  group 4 = roll number (ignored for parsed fields)
-            is_diploma = 1 if m.group(1) == "D" else 0
-            year = int(m.group(2))
-            dept = m.group(3)
-
-        elif dmp == "after_year":
-            # DEPSTAR: ^(D)?(\d{2})(D)(CE|CS|IT)(\d{3})$
-            #  group 1 = optional leading 'D' (diploma marker)
-            #  group 2 = 2-digit year
-            #  group 3 = 'D' (DEPSTAR prefix)
-            #  group 4 = department code
-            #  group 5 = roll number
-            year = int(m.group(2))
-            is_diploma = 1 if m.group(1) == "D" else 0
-            dept = m.group(4)
-
-        else:
-            # 'none' — no diploma variant; simple year + dept extraction
-            # Pattern expected: ^(\d{2})(DEPT)(\d{3})$ — generic fallback
-            year = int(m.group(1))
-            is_diploma = 0
-            dept = m.group(2)
-
-        # Validate extracted department against the pattern's declared list
-        # (the regex already enforces this, but we double-check for safety)
-        if dept not in pattern.department_codes:
-            return ParseResult(matched=False)
-
-        return ParseResult(
-            matched=True,
-            institute=institute_code,
-            department=dept,
-            admission_year=year,
-            is_diploma=is_diploma,
-        )
+            return ParseResult(
+                matched=True,
+                institute=pattern.institute_code,
+                department=pattern.department_code,
+                admission_year=year,
+                is_diploma=is_diploma,
+            )
 
     return ParseResult(matched=False)
 
 
 # ---------------------------------------------------------------------------
-# Convenience helpers (used by admin/query layer later)
+# Convenience helpers (used by admin/query layer)
 # ---------------------------------------------------------------------------
 
 def get_available_institutes(db_conn) -> list:

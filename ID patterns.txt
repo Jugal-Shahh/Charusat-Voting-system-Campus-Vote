@@ -1,0 +1,64 @@
+yy is admission year 
+xxx is id no from 001 to total number of students 
+
+IIIM :
+	Departments -
+ 		BBA: yybbaxxx@charusat.edu.in
+	 	MBA: yymbaxxx@charusat.edu.in
+
+RPCP :
+	Departments -
+		B.Pharm: yybphxxx@charusat.edu.in
+	 	M.Pharm: yymphxxx@charusat.edu.in
+
+PDPIAS : 
+	Departments -
+		Bsc: yybsc@charusat.edu.in
+
+CSPIT :
+	Departments -
+		CS : yycsxxx@charusat.edu.in
+		     dyycsxxx@charusat.edu.in (Diploma CS)
+		CE : yycexxx@charusat.edu.in
+		     dyycexx@charusat.edu.in (Diploma CE)
+		IT : yyitxxx@charusat.edu.in
+		     dyyitxxx@charusat.edu.in (Diploma IT)
+		AIML : yyaimlxxx@charusat.edu.in
+		     dyyaimlxxx@charusat.edu.in (Diploma AIML)
+		CL : yyclxxx@charusat.edu.in
+		     dyyclxxx@charusat.edu.in (Diploma CL)
+		EC : yyecxxx@charusat.edu.in
+		     dyyecxxx@charusat.edu.in (Diploma EC)
+		ME : yymexxx@charusat.edu.in
+		     dyymexxx@charusat.edu.in (Diploma ME)
+		EE : yyeexxx@charusat.edu.in
+		     dyyeexxx@charusat.edu.in (Diploma EE)
+DEPSTAR :
+	Departments -
+		DCS : yydcsxxx@charusat.edu.in
+		     dyydcsxxx@charusat.edu.in (Diploma DCS)
+		DCE : yydcexxx@charusat.edu.in
+		     dyydcexx@charusat.edu.in (Diploma DCE)
+		DIT : yyditxxx@charusat.edu.in
+		     dyyditxxx@charusat.edu.in (Diploma DIT)
+CMPICA :
+	Departments -
+		BCA : yybcaxxx@charusat.edu.in
+		MCA : yymcaxxx@charusat.edu.in
+		Bsc.it : yybsit@charusat.edu.in
+		Msc.it : yymsit@charusat.edu.in
+		     
+BDIAS : 
+	Departments - 
+		BSMT : yybsmtxxx@charusat.edu.in
+		BMIT : yybmitxxx@charusat.edu.in
+
+ARIP :
+	Departments - 
+		BPT : yybptxxx@charusat.edu.in (Bachelors )
+		MPT : yymptxxx@charusat.edu.in (Masters )
+		
+
+
+
+	

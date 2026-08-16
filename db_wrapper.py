@@ -73,7 +73,7 @@ class PostgresCursorWrapper:
         if "insert or ignore" in query.lower():
             query = re.sub(r'insert or ignore into', 'insert into', query, flags=re.IGNORECASE)
             if "institute_id_patterns" in query:
-                query += " ON CONFLICT (institute_code) DO NOTHING"
+                query += " ON CONFLICT (institute_code, department_code) DO NOTHING"
             elif "admins" in query:
                 if "username" in query:
                     query += " ON CONFLICT (username) DO NOTHING"
@@ -157,14 +157,14 @@ class PostgresConnectionWrapper:
                     if "settings" in stmt_strip.lower():
                         stmt_strip += " ON CONFLICT (key) DO NOTHING"
                     elif "institute_id_patterns" in stmt_strip.lower():
-                        stmt_strip += " ON CONFLICT (institute_code) DO NOTHING"
+                        stmt_strip += " ON CONFLICT (institute_code, department_code) DO NOTHING"
                     else:
                         stmt_strip += " ON CONFLICT DO NOTHING"
                 
                 if "insert or replace" in stmt_strip.lower():
                     stmt_strip = re.sub(r'insert or replace into', 'insert into', stmt_strip, flags=re.IGNORECASE)
                     if "institute_id_patterns" in stmt_strip.lower():
-                        stmt_strip += " ON CONFLICT (institute_code) DO UPDATE SET regex_pattern = EXCLUDED.regex_pattern, department_codes = EXCLUDED.department_codes, diploma_marker_position = EXCLUDED.diploma_marker_position"
+                        stmt_strip += " ON CONFLICT (institute_code, department_code) DO UPDATE SET department_name = EXCLUDED.department_name, has_numeric_suffix = EXCLUDED.has_numeric_suffix, diploma_allowed = EXCLUDED.diploma_allowed"
                     else:
                         stmt_strip += " ON CONFLICT DO NOTHING"
 
