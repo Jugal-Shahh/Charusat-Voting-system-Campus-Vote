@@ -57,7 +57,7 @@ def _build_in_memory_db() -> sqlite3.Connection:
             ),
             (
                 "DEPSTAR",
-                r"^(\d{2})(D)(CE|CS|IT)(\d{3})$",
+                r"^(D)?(\d{2})(D)(CE|CS|IT)(\d{3})$",
                 '["CE","CS","IT"]',
                 "after_year",
             ),
@@ -150,12 +150,14 @@ def run_tests():
     expect_match("D22EE200",   patterns, institute="CSPIT", dept="EE",   year=22, is_diploma=1)
 
     # -----------------------------------------------------------------------
-    print("\n[3] DEPSTAR IDs — D after year, before dept")
+    print("\n[3] DEPSTAR IDs — plain and diploma forms")
     # -----------------------------------------------------------------------
-    expect_match("24DCE001", patterns, institute="DEPSTAR", dept="CE",  year=24, is_diploma=1)
-    expect_match("25DCS010", patterns, institute="DEPSTAR", dept="CS",  year=25, is_diploma=1)
-    expect_match("23DIT099", patterns, institute="DEPSTAR", dept="IT",  year=23, is_diploma=1)
-    expect_match("22DCE200", patterns, institute="DEPSTAR", dept="CE",  year=22, is_diploma=1)
+    expect_match("24DCE001", patterns, institute="DEPSTAR", dept="CE",  year=24, is_diploma=0)
+    expect_match("25DCS010", patterns, institute="DEPSTAR", dept="CS",  year=25, is_diploma=0)
+    expect_match("23DIT099", patterns, institute="DEPSTAR", dept="IT",  year=23, is_diploma=0)
+    expect_match("22DCE200", patterns, institute="DEPSTAR", dept="CE",  year=22, is_diploma=0)
+    expect_match("D25DCE153", patterns, institute="DEPSTAR", dept="CE", year=25, is_diploma=1)
+    expect_match("D25DCS101", patterns, institute="DEPSTAR", dept="CS", year=25, is_diploma=1)
 
     # -----------------------------------------------------------------------
     print("\n[4] Restrict-to-institute enforcement")
@@ -170,7 +172,7 @@ def run_tests():
     expect_match("24AIML065", patterns, institute="CSPIT", dept="AIML", year=24,
                  is_diploma=0, restrict="CSPIT")
     expect_match("24DCE001",  patterns, institute="DEPSTAR", dept="CE",  year=24,
-                 is_diploma=1, restrict="DEPSTAR")
+                 is_diploma=0, restrict="DEPSTAR")
 
     # -----------------------------------------------------------------------
     print("\n[5] Invalid / malformed IDs — all must return matched=False")

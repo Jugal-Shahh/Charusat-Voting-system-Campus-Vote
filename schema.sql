@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS institute_id_patterns (
     diploma_marker_position TEXT NOT NULL       -- 'before_year'|'after_year'|'none'
 );
 
-INSERT OR IGNORE INTO institute_id_patterns
+INSERT OR REPLACE INTO institute_id_patterns
     (institute_code, regex_pattern, department_codes, diploma_marker_position)
 VALUES (
     'CSPIT',
@@ -35,11 +35,11 @@ VALUES (
     'before_year'
 );
 
-INSERT OR IGNORE INTO institute_id_patterns
+INSERT OR REPLACE INTO institute_id_patterns
     (institute_code, regex_pattern, department_codes, diploma_marker_position)
 VALUES (
     'DEPSTAR',
-    '^(\d{2})(D)(CE|CS|IT)(\d{3})$',
+    '^(D)?(\d{2})(D)(CE|CS|IT)(\d{3})$',
     '["CE","CS","IT"]',
     'after_year'
 );

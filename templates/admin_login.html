@@ -100,7 +100,7 @@
           <p style="font-size:12px; color:var(--text-muted); margin:0 0 6px;"><strong>First time?</strong></p>
           <p style="font-size:12px; color:var(--text-muted); margin:0;">
             To create an admin account,
-            <a href="{{ url_for('admin_register') if voter_signed_in else (url_for('dev_login') if not oauth_configured else url_for('auth_google')) }}" style="color:var(--link-purple); font-weight:600;">click here to register as Admin</a>.
+            <a href="{{ url_for('admin_register') }}" style="color:var(--link-purple); font-weight:600;">click here to register as Admin</a>.
           </p>
         </div>
 

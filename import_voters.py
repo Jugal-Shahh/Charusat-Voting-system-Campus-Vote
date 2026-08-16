@@ -34,6 +34,7 @@ the server; it does no Flask/web auth of its own.
 """
 
 import argparse
+import os
 import sqlite3
 import sys
 from pathlib import Path
@@ -43,6 +44,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from id_parser import load_patterns, parse_voter_id
+from db_wrapper import get_db_connection
 
 DB_PATH = PROJECT_ROOT / "campus_vote.db"
 
@@ -51,7 +53,7 @@ DB_PATH = PROJECT_ROOT / "campus_vote.db"
 # Migration helper: add new columns to voters if they don't exist yet.
 # SQLite doesn't support "ADD COLUMN IF NOT EXISTS", so we check manually.
 # ---------------------------------------------------------------------------
-def _ensure_voter_columns(conn: sqlite3.Connection) -> None:
+def _ensure_voter_columns(conn) -> None:
     """Add new structured columns to voters if missing (safe to call repeatedly)."""
     existing = {row[1] for row in conn.execute("PRAGMA table_info(voters)")}
     new_cols = {
@@ -66,7 +68,7 @@ def _ensure_voter_columns(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
-def _ensure_patterns_table(conn: sqlite3.Connection) -> None:
+def _ensure_patterns_table(conn) -> None:
     """Create institute_id_patterns and seed it if the table doesn't exist yet."""
     schema_path = PROJECT_ROOT / "schema.sql"
     if not schema_path.exists():
@@ -93,9 +95,7 @@ def import_voters(
     Returns a summary dict:
         {added, updated, flagged, skipped_blank, skipped_format}
     """
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
+    conn = get_db_connection(db_path)
 
     # Ensure schema is up-to-date
     _ensure_patterns_table(conn)
@@ -236,18 +236,25 @@ def main():
     parser.add_argument(
         "--db",
         default=str(DB_PATH),
-        help=f"Path to the SQLite database (default: {DB_PATH})",
+        help=f"Path to local SQLite database (only used when DATABASE_URL is not set). Default: {DB_PATH}",
     )
     args = parser.parse_args()
 
     file_path = args.voters_file
     institute = args.institute.upper() if args.institute else None
 
+    # Show which database will actually be used
+    db_url = os.environ.get("DATABASE_URL", "")
+    if db_url and (db_url.startswith("postgres://") or db_url.startswith("postgresql://")) and "paste-your-real" not in db_url:
+        db_label = "PostgreSQL (via DATABASE_URL)"
+    else:
+        db_label = f"SQLite ({Path(args.db).name})"
+
     print(f"\n{'='*60}")
     print(f"  CharusatVote — Voter Import")
     print(f"  File     : {file_path}")
     print(f"  Institute: {institute or '(auto-detect)'}")
-    print(f"  Database : {args.db}")
+    print(f"  Database : {db_label}")
     print(f"{'='*60}\n")
 
     summary = import_voters(file_path, institute, db_path=args.db)

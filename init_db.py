@@ -17,12 +17,14 @@ this script will:
 Usage:
     python init_db.py
 """
+import os
 import shutil
 import sqlite3
 from datetime import datetime
 from pathlib import Path
 
 from werkzeug.security import generate_password_hash
+from db_wrapper import get_db_connection
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 DB_PATH = PROJECT_ROOT / "campus_vote.db"
@@ -46,6 +48,10 @@ def _table_exists(conn, table):
 
 def _backup_db():
     """Create a timestamped backup of the existing database."""
+    db_url = os.environ.get("DATABASE_URL")
+    if db_url and ("postgres://" in db_url or "postgresql://" in db_url) and "paste-your-real" not in db_url:
+        print("  [info] Remote Postgres database detected; skipping local file backup.")
+        return None
     if DB_PATH.exists():
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup = DB_PATH.with_name(f"campus_vote_backup_{ts}.db")
@@ -134,8 +140,7 @@ def main():
     # Back up existing DB before any changes
     _backup_db()
 
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.execute("PRAGMA foreign_keys = ON")
+    conn = get_db_connection()
 
     try:
         # Check if migration from old schema is needed

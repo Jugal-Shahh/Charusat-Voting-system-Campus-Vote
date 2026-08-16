@@ -164,14 +164,15 @@ def parse_voter_id(
             dept = m.group(3)
 
         elif dmp == "after_year":
-            # DEPSTAR: ^(\d{2})(D)(CE|CS|IT)(\d{3})$
-            #  group 1 = 2-digit year
-            #  group 2 = 'D' (always present in DEPSTAR IDs)
-            #  group 3 = department code
-            #  group 4 = roll number
-            year = int(m.group(1))
-            is_diploma = 1 if m.group(2) == "D" else 0
-            dept = m.group(3)
+            # DEPSTAR: ^(D)?(\d{2})(D)(CE|CS|IT)(\d{3})$
+            #  group 1 = optional leading 'D' (diploma marker)
+            #  group 2 = 2-digit year
+            #  group 3 = 'D' (DEPSTAR prefix)
+            #  group 4 = department code
+            #  group 5 = roll number
+            year = int(m.group(2))
+            is_diploma = 1 if m.group(1) == "D" else 0
+            dept = m.group(4)
 
         else:
             # 'none' — no diploma variant; simple year + dept extraction

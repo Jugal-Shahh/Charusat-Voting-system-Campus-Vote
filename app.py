@@ -14,6 +14,7 @@ import sqlite3
 import string
 from functools import wraps
 from pathlib import Path
+from db_wrapper import get_db_connection
 
 try:
     from dotenv import load_dotenv
@@ -102,16 +103,14 @@ if OAUTH_CONFIGURED:
 # ---------------------------------------------------------------------------
 def get_db():
     if "db" not in g:
-        g.db = sqlite3.connect(str(DB_PATH))
-        g.db.row_factory = sqlite3.Row
-        g.db.execute("PRAGMA foreign_keys = ON")
+        g.db = get_db_connection()
         # Ensure max_choices column exists in voting_systems
         try:
             cols = [r["name"] for r in g.db.execute("PRAGMA table_info(voting_systems)").fetchall()]
             if cols and "max_choices" not in cols:
                 g.db.execute("ALTER TABLE voting_systems ADD COLUMN max_choices INTEGER NOT NULL DEFAULT 1")
                 g.db.commit()
-        except sqlite3.Error:
+        except Exception:
             pass
     return g.db
 
@@ -814,7 +813,7 @@ def vote_page(code):
                 (vs["id"], voter_id),
             )
             db.commit()
-        except sqlite3.Error:
+        except Exception:
             db.rollback()
             flash("Something went wrong recording your vote. Please try again.", "error")
             return render_template("vote.html", vs=vs, voter=voter, candidates=candidates)
