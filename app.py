@@ -62,13 +62,18 @@ OAUTH_CONFIGURED = bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET)
 app = Flask(__name__)
 
 # Secret key
-if SECRET_KEY_FILE.exists():
+if os.environ.get("SECRET_KEY"):
+    app.secret_key = os.environ["SECRET_KEY"]
+elif SECRET_KEY_FILE.exists():
     with open(SECRET_KEY_FILE, "rb") as f:
         app.secret_key = f.read()
 else:
     key = os.urandom(32)
-    with open(SECRET_KEY_FILE, "wb") as f:
-        f.write(key)
+    try:
+        with open(SECRET_KEY_FILE, "wb") as f:
+            f.write(key)
+    except Exception:
+        pass
     app.secret_key = key
 
 app.config["SESSION_COOKIE_HTTPONLY"] = True
