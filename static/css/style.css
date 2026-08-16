@@ -1453,21 +1453,402 @@ input.egov-input-field {
 .show-pw-btn:hover { color: var(--text-dark); }
 
 /* ============================================================
-   RESPONSIVE
+   RESPONSIVE — Comprehensive Mobile & Tablet Rules
+   Optimized for phones down to 320px screen width
    ============================================================ */
+
+/* Tablet & Smaller Laptops (<= 960px) */
+@media (max-width: 960px) {
+  .egov-excellence-panel {
+    display: none !important;
+  }
+}
+
+/* Tablets & Mobile Screens (<= 860px) */
 @media (max-width: 860px) {
   .login-page-wrapper { flex-direction: column; }
-  .login-left { width: 100%; min-height: 180px; padding: 28px 20px; }
-  .login-right { padding: 28px 24px; }
+  .login-left { width: 100%; min-height: 180px; padding: 24px 16px; }
+  .login-right { padding: 24px 20px; }
   .db-top-row { grid-template-columns: 1fr; }
   .stats-panel { flex-direction: column; }
   .results-stats-row { flex-direction: column; }
-  .add-candidate-fields { flex-direction: column; }
-  .summary-strip { flex-wrap: wrap; gap: 16px; }
-  .results-card { padding: 20px; }
+  .add-candidate-fields { flex-direction: column; align-items: stretch; }
+  .summary-strip { flex-wrap: wrap; gap: 12px; }
+  .results-card { padding: 18px 14px; }
   .audit-privacy-banner { flex-direction: column; align-items: flex-start; }
 }
-@media (max-width: 580px) {
-  .election-grid { grid-template-columns: 1fr; }
-  .db-top-row { grid-template-columns: 1fr; }
+
+/* Mobile Phones (<= 768px) */
+@media (max-width: 768px) {
+  /* Global viewport safety */
+  body {
+    overflow-x: hidden;
+    font-size: 13px;
+  }
+
+  main {
+    padding: 14px 10px !important;
+    width: 100% !important;
+    box-sizing: border-box;
+  }
+
+  /* Top Navbar */
+  .site-header {
+    height: 48px;
+    padding: 0 10px;
+  }
+  .nav-left {
+    gap: 6px;
+  }
+  .nav-hamburger {
+    width: 32px;
+    height: 32px;
+  }
+  .nav-logo-box {
+    height: 30px;
+    padding: 2px 6px;
+  }
+  .navbar-logo {
+    height: 22px;
+  }
+  .nav-avatar {
+    width: 26px;
+    height: 26px;
+  }
+  .nav-icon-btn {
+    display: none !important;
+  }
+  .site-header .title-block {
+    margin-left: 4px;
+    max-width: 110px;
+  }
+  .site-header .headline {
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .header-right {
+    gap: 8px;
+    font-size: 11px;
+  }
+  .header-user {
+    font-size: 11px;
+    max-width: 95px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .header-link {
+    font-size: 11px;
+  }
+
+  /* Full-Page eGov Login on Phones (matches official egov mobile reference) */
+  .egov-login-container {
+    flex-direction: column !important;
+    width: 100% !important;
+    min-height: calc(100vh - 36px) !important;
+  }
+  .egov-institutes-strip {
+    display: none !important;
+  }
+  .egov-stage {
+    padding: 20px 14px !important;
+    min-height: calc(100vh - 36px) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    box-sizing: border-box;
+  }
+  .egov-login-card {
+    width: 100% !important;
+    max-width: 380px !important;
+    margin: 0 auto !important;
+    padding: 24px 18px 20px !important;
+    border-radius: 6px !important;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.15) !important;
+  }
+  .egov-brand-logo {
+    max-width: 195px !important;
+  }
+  .egov-card-divider {
+    font-size: 12px;
+    margin-bottom: 12px;
+  }
+  .egov-card-divider::before, .egov-card-divider::after {
+    width: 25px;
+  }
+  .egov-subtext {
+    font-size: 12px;
+    line-height: 1.45;
+    margin-bottom: 16px;
+  }
+  .egov-or-divider {
+    font-size: 11px;
+    margin: 14px 0 10px;
+  }
+  .egov-or-divider::before, .egov-or-divider::after {
+    width: 35px;
+  }
+  .egov-btn-primary, .egov-btn-secondary {
+    padding: 11px 14px;
+    font-size: 13.5px;
+    min-height: 42px;
+  }
+  .egov-input-field, input.egov-input-field {
+    padding: 10px 12px 10px 42px !important;
+    font-size: 13.5px;
+    min-height: 42px;
+  }
+  .egov-corner-accent {
+    display: none !important;
+  }
+  .egov-social-sidebar {
+    display: none !important;
+  }
+  .egov-fixed-footer {
+    padding: 10px 12px;
+    font-size: 11px;
+    line-height: 1.35;
+  }
+
+  /* Cards & Forms */
+  .card {
+    padding: 18px 14px !important;
+    width: 100% !important;
+    border-radius: 6px;
+    box-sizing: border-box;
+  }
+  .card.wide, .card.x-wide {
+    max-width: 100% !important;
+  }
+  .widget-header {
+    margin: -18px -14px 16px !important;
+    padding: 10px 14px !important;
+    font-size: 14px;
+  }
+  h1.form-title {
+    font-size: 18px;
+    line-height: 1.3;
+    word-break: break-word;
+  }
+  .form-sub {
+    font-size: 12px;
+    margin-bottom: 16px;
+  }
+  .input-row {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .input-row input, .input-row .btn {
+    width: 100% !important;
+  }
+
+  /* Voting / Ballot */
+  .steps {
+    font-size: 11px;
+    gap: 4px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .ballot-group {
+    padding: 12px 10px;
+    margin-bottom: 16px;
+  }
+  .ballot-option {
+    padding: 10px 6px;
+    gap: 8px;
+  }
+  .ballot-option .name {
+    font-size: 13px;
+    word-break: break-word;
+  }
+  .ballot-option .nota-tag {
+    font-size: 9px;
+  }
+
+  /* Results Page */
+  .results-card {
+    padding: 16px 12px !important;
+  }
+  .results-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .results-stats-row {
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+  .results-stat-card {
+    padding: 12px;
+  }
+  .rsc-num {
+    font-size: 20px;
+  }
+  .winner-spotlight {
+    padding: 18px 12px;
+    margin-bottom: 18px;
+  }
+  .winner-name {
+    font-size: 20px;
+  }
+  .result-bar-row {
+    padding: 10px 8px;
+    gap: 8px;
+  }
+  .rbar-avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 12px;
+  }
+  .rbar-meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+  .rbar-count {
+    margin-left: auto;
+  }
+  .rbar-votes {
+    font-size: 16px;
+  }
+
+  /* Admin My Systems */
+  .dash-header {
+    padding: 14px 12px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .dash-create-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .summary-strip {
+    margin: 0 0 16px !important;
+    padding: 12px 6px !important;
+    justify-content: space-around;
+  }
+  .summary-stat {
+    padding: 0 2px;
+  }
+  .summary-num {
+    font-size: 18px;
+  }
+  .summary-lbl {
+    font-size: 8.5px;
+  }
+  .summary-divider {
+    height: 28px;
+  }
+  .election-grid {
+    grid-template-columns: 1fr !important;
+    padding: 0 0 16px !important;
+    gap: 12px;
+  }
+
+  /* Admin Single System Dashboard */
+  .db-top-row {
+    grid-template-columns: 1fr !important;
+    padding: 12px 0 !important;
+    gap: 12px;
+  }
+  .share-panel {
+    padding: 14px 12px;
+  }
+  .share-code {
+    font-size: 24px;
+  }
+  .stats-panel {
+    padding: 14px 12px;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .stats-numbers {
+    width: 100%;
+    justify-content: space-around;
+  }
+  .stat-big {
+    font-size: 18px;
+  }
+  .controls-panel {
+    padding: 12px;
+  }
+  .db-section-header {
+    padding: 0;
+  }
+  .candidates-list {
+    padding: 0;
+  }
+  .candidate-row {
+    padding: 8px 10px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .add-candidate-panel {
+    margin: 0 0 16px !important;
+    padding: 12px !important;
+  }
+  .add-candidate-fields {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px;
+  }
+  .add-candidate-fields .field-group {
+    width: 100%;
+  }
+  .add-cand-btn {
+    width: 100%;
+  }
+
+  /* Audit Log */
+  .audit-privacy-banner {
+    margin: 10px 0 !important;
+    padding: 12px !important;
+  }
+  .audit-controls {
+    padding: 0 !important;
+  }
+  .audit-table-wrap {
+    margin: 0 !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  table.admin-table th, table.admin-table td,
+  table.audit-table th, table.audit-table td {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  /* Voter Dashboard */
+  .system-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px;
+  }
+  .system-card {
+    padding: 14px 12px;
+  }
+  .system-name {
+    font-size: 14px;
+  }
 }
+
+/* Ultra-compact phones (<= 400px) */
+@media (max-width: 400px) {
+  .egov-login-card {
+    padding: 20px 14px 16px !important;
+  }
+  .egov-brand-logo {
+    max-width: 175px !important;
+  }
+  .summary-strip {
+    padding: 10px 4px !important;
+  }
+  .summary-num {
+    font-size: 16px;
+  }
+}
+

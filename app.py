@@ -303,11 +303,13 @@ def auth_google_callback():
         flow = session.get("auth_flow")
         # Case 2: Right domain, but ID doesn't match any known institute/department pattern
         if not parse_result.matched:
-            # If signing up as admin, allow non-student CHARUSAT emails (faculty/staff)
-            if flow == "admin_register":
+            # If signing up or resetting password as admin, allow non-student CHARUSAT emails (faculty/staff)
+            if flow in ("admin_register", "admin_recover_password"):
                 session["google_email"] = email_lower
                 session["google_name"] = name or local_part
                 session.pop("auth_flow", None)
+                if flow == "admin_recover_password":
+                    return redirect(url_for("admin_recover_password"))
                 return redirect(url_for("admin_register"))
 
             flash("We couldn't verify your student ID from this account. Please contact the election admin if you believe this is an error.", "error")
@@ -353,6 +355,8 @@ def auth_google_callback():
 
         if flow == "admin_register":
             return redirect(url_for("admin_register"))
+        elif flow == "admin_recover_password":
+            return redirect(url_for("admin_recover_password"))
         elif next_url:
             return redirect(next_url)
         else:
@@ -538,6 +542,54 @@ def admin_logout():
     session.pop("admin_username", None)
     flash("Logged out of admin panel.", "success")
     return redirect(url_for("admin_login"))
+
+
+@app.route("/admin/recover-password", methods=["GET", "POST"])
+def admin_recover_password():
+    """Recover / reset admin password using verified Google authentication."""
+    if "google_email" not in session:
+        session["auth_flow"] = "admin_recover_password"
+        if OAUTH_CONFIGURED:
+            return redirect(url_for("auth_google"))
+        else:
+            return redirect(url_for("dev_login"))
+
+    email = session["google_email"]
+    db = get_db()
+    admin = db.execute("SELECT * FROM admins WHERE LOWER(google_email) = LOWER(?)", (email,)).fetchone()
+    if not admin:
+        flash(f"No admin account was found registered with {email}. Please register as an Admin first.", "error")
+        session.pop("google_email", None)
+        session.pop("google_name", None)
+        return redirect(url_for("admin_login"))
+
+    if request.method == "POST":
+        password = request.form.get("password", "")
+        confirm = request.form.get("confirm_password", "")
+
+        errors = []
+        if not password or len(password) < 6:
+            errors.append("Password must be at least 6 characters.")
+        if password != confirm:
+            errors.append("Passwords do not match.")
+
+        if errors:
+            for err in errors:
+                flash(err, "error")
+            return render_template("admin_recover_password.html", email=email, admin_username=admin["username"])
+
+        db.execute(
+            "UPDATE admins SET password_hash = ? WHERE LOWER(google_email) = LOWER(?)",
+            (generate_password_hash(password), email)
+        )
+        db.commit()
+
+        session.pop("google_email", None)
+        session.pop("google_name", None)
+        flash("Password updated successfully! Please log in with your new password.", "success")
+        return redirect(url_for("admin_login"))
+
+    return render_template("admin_recover_password.html", email=email, admin_username=admin["username"])
 
 
 # ===================================================================
@@ -975,10 +1027,12 @@ def dev_login():
 
         flow = session.get("auth_flow")
         if not parse_result.matched:
-            if flow == "admin_register":
+            if flow in ("admin_register", "admin_recover_password"):
                 session["google_email"] = email
                 session["google_name"] = local_part
                 session.pop("auth_flow", None)
+                if flow == "admin_recover_password":
+                    return redirect(url_for("admin_recover_password"))
                 return redirect(url_for("admin_register"))
 
             flash("We couldn't verify your student ID from this account. Please contact the election admin if you believe this is an error.", "error")
@@ -1019,6 +1073,8 @@ def dev_login():
         flow = session.pop("auth_flow", None)
         if flow == "admin_register":
             return redirect(url_for("admin_register"))
+        elif flow == "admin_recover_password":
+            return redirect(url_for("admin_recover_password"))
         elif next_url:
             return redirect(next_url)
         return redirect(url_for("voter_dashboard"))
