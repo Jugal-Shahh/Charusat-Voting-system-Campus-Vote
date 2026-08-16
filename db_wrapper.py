@@ -6,6 +6,28 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent
 DB_PATH = PROJECT_ROOT / "campus_vote.db"
 
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    def load_dotenv(dotenv_path=None):
+        if dotenv_path is None:
+            return
+        p = Path(dotenv_path)
+        if not p.exists():
+            return
+        try:
+            with open(p, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    k, v = line.split("=", 1)
+                    os.environ.setdefault(k.strip(), v.strip().strip("'\""))
+        except Exception:
+            pass
+
+load_dotenv(PROJECT_ROOT / ".env")
+
 class PostgresCursorWrapper:
     def __init__(self, cursor):
         self.cursor = cursor
@@ -35,7 +57,7 @@ class PostgresCursorWrapper:
         # Handle sqlite_master table queries
         if "sqlite_master" in query.lower():
             query = re.sub(
-                r"SELECT\s+COUNT\(\*\)\s+FROM\s+sqlite_master\s+WHERE\s+type='table'\s+AND\s+name=\?",
+                r"SELECT\s+COUNT\(\*\)\s+FROM\s+sqlite_master\s+WHERE\s+type='table'\s+AND\s+name=%s",
                 "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = %s",
                 query,
                 flags=re.IGNORECASE
@@ -139,6 +161,13 @@ class PostgresConnectionWrapper:
                     else:
                         stmt_strip += " ON CONFLICT DO NOTHING"
                 
+                if "insert or replace" in stmt_strip.lower():
+                    stmt_strip = re.sub(r'insert or replace into', 'insert into', stmt_strip, flags=re.IGNORECASE)
+                    if "institute_id_patterns" in stmt_strip.lower():
+                        stmt_strip += " ON CONFLICT (institute_code) DO UPDATE SET regex_pattern = EXCLUDED.regex_pattern, department_codes = EXCLUDED.department_codes, diploma_marker_position = EXCLUDED.diploma_marker_position"
+                    else:
+                        stmt_strip += " ON CONFLICT DO NOTHING"
+
                 cur.execute(stmt_strip)
         self.conn.commit()
 

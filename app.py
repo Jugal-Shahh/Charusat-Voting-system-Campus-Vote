@@ -16,25 +16,7 @@ from functools import wraps
 from pathlib import Path
 from db_wrapper import get_db_connection
 
-try:
-    from dotenv import load_dotenv
-except ImportError:
-    def load_dotenv(dotenv_path=None):
-        if dotenv_path is None:
-            return
-        p = Path(dotenv_path)
-        if not p.exists():
-            return
-        try:
-            with open(p, "r", encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if not line or line.startswith("#") or "=" not in line:
-                        continue
-                    k, v = line.split("=", 1)
-                    os.environ.setdefault(k.strip(), v.strip().strip("'\""))
-        except Exception:
-            pass
+
 
 from flask import (
     Flask, render_template, request, redirect,
@@ -46,7 +28,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 # Setup
 # ---------------------------------------------------------------------------
 PROJECT_ROOT = Path(__file__).resolve().parent
-load_dotenv(PROJECT_ROOT / ".env")
+
 
 DB_PATH = PROJECT_ROOT / "campus_vote.db"
 SECRET_KEY_FILE = PROJECT_ROOT / ".secret_key"

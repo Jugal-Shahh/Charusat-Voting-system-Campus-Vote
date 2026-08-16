@@ -245,6 +245,12 @@ def main():
 
     # Show which database will actually be used
     db_url = os.environ.get("DATABASE_URL", "")
+    
+    if db_url:
+        print(f"  [info] DATABASE_URL found in environment (length: {len(db_url)})")
+    else:
+        print("  [info] DATABASE_URL not found or empty in environment")
+
     if db_url and (db_url.startswith("postgres://") or db_url.startswith("postgresql://")) and "paste-your-real" not in db_url:
         db_label = "PostgreSQL (via DATABASE_URL)"
     else:

@@ -137,6 +137,12 @@ def main():
     print(f"  CharusatVote -- Database Init / Migration")
     print(f"{'='*55}\n")
 
+    db_url = os.environ.get("DATABASE_URL", "")
+    if db_url:
+        print(f"  [info] DATABASE_URL found in environment (length: {len(db_url)})")
+    else:
+        print("  [info] DATABASE_URL not found or empty in environment")
+
     # Back up existing DB before any changes
     _backup_db()
 
