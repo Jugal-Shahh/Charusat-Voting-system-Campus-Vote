@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Vote Recorded — CampusVote{% endblock %}
+{% block page_title %}Vote Confirmed{% endblock %}
+{% block content %}
+<div class="card center">
+  <div class="steps" style="justify-content:center;">
+    <span class="step"><span class="dot"></span>Verify ID</span>
+    <span class="sep">—</span>
+    <span class="step"><span class="dot"></span>Cast Ballot</span>
+    <span class="sep">—</span>
+    <span class="step active"><span class="dot"></span>Confirmed</span>
+  </div>
+
+  <div class="seal">
+    <span class="seal-text">VOTE<br>RECORDED</span>
+  </div>
+
+  <h1 class="form-title">Your ballot has been recorded</h1>
+  <p class="form-sub" style="text-align:center;">Thank you for participating. Your vote is anonymous and cannot be traced back to your ID. You may safely close this tab.</p>
+
+  <a href="{{ url_for('vote_results', code=vs.code) }}" class="btn secondary">📊 View live results</a>
+</div>
+{% endblock %}

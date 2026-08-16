@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Verify ID — CampusVote{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="steps">
+    <span class="step active"><span class="dot"></span>Verify ID</span>
+    <span class="sep">—</span>
+    <span class="step"><span class="dot"></span>Cast Ballot</span>
+    <span class="sep">—</span>
+    <span class="step"><span class="dot"></span>Confirmed</span>
+  </div>
+
+  <h1 class="form-title">Verify your student ID</h1>
+  <p class="form-sub">Enter your official CHARUSAT enrollment ID exactly as printed on your ID card. Each ID may vote once.</p>
+
+  <form method="POST" autocomplete="off">
+    <label for="voter_id">Enrollment ID</label>
+    <input type="text" id="voter_id" name="voter_id" placeholder="e.g. 24AIML065" required autofocus>
+    <button type="submit" class="btn">Continue to ballot</button>
+  </form>
+
+  <p class="center mt-24"><a class="link-quiet" href="{{ url_for('results') }}">View live results →</a></p>
+</div>
+{% endblock %}

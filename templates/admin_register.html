@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Register Admin — CampusVote{% endblock %}
+{% block page_title %}Register Admin{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="widget-header" style="margin:-28px -32px 24px; border-radius:var(--radius) var(--radius) 0 0;">
+    👤 Create Admin Account
+  </div>
+
+  <p class="form-sub">
+    Verified as: <strong>{{ email }}</strong><br>
+    Set a username and password for managing your voting systems.
+  </p>
+
+  <form method="POST" autocomplete="off">
+    <div class="login-input-group">
+      <span class="login-icon">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      </span>
+      <input type="text" id="username" name="username" value="{{ username }}" required autofocus
+             placeholder="Username (min 3 chars)" minlength="3">
+    </div>
+
+    <div class="login-input-group">
+      <span class="login-icon">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </span>
+      <input type="password" id="password" name="password" required minlength="6"
+             placeholder="Password (min 6 chars)">
+    </div>
+
+    <div class="login-input-group">
+      <span class="login-icon">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </span>
+      <input type="password" id="confirm_password" name="confirm_password" required minlength="6"
+             placeholder="Confirm password">
+    </div>
+
+    <button type="submit" class="login-btn">Create Account</button>
+  </form>
+
+  <p class="center" style="margin-top:20px;"><a class="link-quiet" href="{{ url_for('home') }}">Cancel</a></p>
+</div>
+{% endblock %}

@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block title %}Turnout Audit — {{ vs.name }}{% endblock %}
+{% block content %}
+<div class="card x-wide dashboard-card">
+
+  <!-- Header -->
+  <div class="dash-header" style="margin-bottom:24px;">
+    <div>
+      <div class="eyebrow-label">
+        <a href="{{ url_for('admin_system_dashboard', code=vs.code) }}" class="breadcrumb-link">{{ vs.name }}</a>
+        <span class="breadcrumb-sep">›</span>
+        <span>Audit Log</span>
+      </div>
+      <h1 class="form-title" style="margin-bottom:4px;">Turnout Audit</h1>
+      <p class="form-sub" style="margin-bottom:0;">Confirms who voted and when. Votes are fully anonymous — this log does not reveal individual choices.</p>
+    </div>
+    <a href="{{ url_for('admin_system_dashboard', code=vs.code) }}" class="ctrl-btn ctrl-btn--secondary" style="text-decoration:none; width:auto;">
+      ← Dashboard
+    </a>
+  </div>
+
+  <!-- Privacy notice -->
+  <div class="audit-privacy-banner">
+    <div class="apb-icon">
+      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+    </div>
+    <div class="apb-text">
+      <strong>Ballot Secrecy Preserved.</strong>
+      This audit log records participation only. The anonymous vote table is intentionally separated — no system, including the admin, can link a voter to their ballot choice.
+    </div>
+    <div class="apb-count">
+      <span class="apb-num">{{ log | length }}</span>
+      <span class="apb-lbl">Voters Logged</span>
+    </div>
+  </div>
+
+  <!-- Search + export bar -->
+  <div class="audit-controls">
+    <div class="audit-search-wrap">
+      <svg class="audit-search-icon" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input type="text" id="audit-search" placeholder="Search by name or voter ID…" class="audit-search-input" autocomplete="off">
+    </div>
+    <button class="ctrl-btn ctrl-btn--secondary" onclick="exportCSV()" style="width:auto; text-decoration:none;">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      Export CSV
+    </button>
+  </div>
+
+  <!-- Audit table -->
+  {% if log %}
+  <div class="audit-table-wrap">
+    <table class="audit-table" id="audit-table">
+      <thead>
+        <tr>
+          <th class="at-col-num">#</th>
+          <th class="sortable" data-col="0" onclick="sortTable(0)">
+            Voter ID <span class="sort-icon">⇅</span>
+          </th>
+          <th class="sortable" data-col="1" onclick="sortTable(1)">
+            Full Name <span class="sort-icon">⇅</span>
+          </th>
+          <th class="sortable" data-col="2" onclick="sortTable(2)">
+            Voted At (UTC) <span class="sort-icon">⇅</span>
+          </th>
+          <th>Institute</th>
+        </tr>
+      </thead>
+      <tbody id="audit-tbody">
+        {% for row in log %}
+        <tr class="audit-row">
+          <td class="at-col-num at-num">{{ loop.index }}</td>
+          <td class="at-id">{{ row.voter_id }}</td>
+          <td class="at-name">{{ row.full_name }}</td>
+          <td class="at-time">{{ row.voted_at }}</td>
+          <td class="at-inst">
+            {% if row.institute %}
+              <span class="badge-inline">{{ row.institute }}</span>
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="audit-footer" id="audit-count-bar">
+    Showing <strong id="visible-count">{{ log | length }}</strong> of {{ log | length }} records
+  </div>
+
+  {% else %}
+  <div class="empty-state" style="margin-top:16px;">
+    <div class="empty-icon">📋</div>
+    <p>No votes have been cast yet. The audit log will populate as participants vote.</p>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Live search filter
+const searchInput = document.getElementById('audit-search');
+if (searchInput) {
+  searchInput.addEventListener('input', function() {
+    const q = this.value.toLowerCase();
+    const rows = document.querySelectorAll('#audit-tbody .audit-row');
+    let visible = 0;
+    rows.forEach(row => {
+      const text = row.textContent.toLowerCase();
+      const show = text.includes(q);
+      row.style.display = show ? '' : 'none';
+      if (show) visible++;
+    });
+    document.getElementById('visible-count').textContent = visible;
+  });
+}
+
+// Simple sort
+let sortDir = {};
+function sortTable(colIndex) {
+  const tbody = document.getElementById('audit-tbody');
+  const rows = Array.from(tbody.querySelectorAll('.audit-row'));
+  const asc = !sortDir[colIndex];
+  sortDir = {};
+  sortDir[colIndex] = asc;
+
+  rows.sort((a, b) => {
+    const aText = a.querySelectorAll('td')[colIndex + 1].textContent.trim();
+    const bText = b.querySelectorAll('td')[colIndex + 1].textContent.trim();
+    return asc ? aText.localeCompare(bText) : bText.localeCompare(aText);
+  });
+
+  // Update row numbers
+  rows.forEach((row, i) => {
+    row.querySelector('.at-num').textContent = i + 1;
+    tbody.appendChild(row);
+  });
+
+  // Update sort icons
+  document.querySelectorAll('.sort-icon').forEach(icon => icon.textContent = '⇅');
+  const th = document.querySelector(`th[data-col="${colIndex}"] .sort-icon`);
+  if (th) th.textContent = asc ? '↑' : '↓';
+}
+
+// CSV Export
+function exportCSV() {
+  const rows = document.querySelectorAll('#audit-tbody .audit-row');
+  const lines = ['Voter ID,Full Name,Voted At (UTC)'];
+  rows.forEach(row => {
+    if (row.style.display === 'none') return;
+    const id = row.querySelector('.at-id').textContent.trim();
+    const name = row.querySelector('.at-name').textContent.trim();
+    const time = row.querySelector('.at-time').textContent.trim();
+    lines.push(`"${id}","${name}","${time}"`);
+  });
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'audit_log_{{ vs.code }}.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+</script>
+{% endblock %}

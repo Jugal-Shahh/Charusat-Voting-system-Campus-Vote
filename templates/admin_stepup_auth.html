@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Step-up Verification — {{ vs.name }}{% endblock %}
+{% block content %}
+<div class="card stepup-card">
+
+  <!-- Security seal -->
+  <div class="stepup-seal">
+    <svg width="56" height="56" fill="none" stroke="var(--btn-blue)" stroke-width="1.5" viewBox="0 0 24 24">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+    </svg>
+  </div>
+
+  <h1 class="form-title center">Identity Verification</h1>
+  <p class="form-sub center" style="max-width:360px; margin:0 auto 28px;">
+    Access to the turnout audit log requires re-confirming your admin password. This protects voter participation records.
+  </p>
+
+  <!-- Election context -->
+  <div class="stepup-context">
+    <div class="stepup-context-label">Accessing audit for</div>
+    <div class="stepup-context-name">{{ vs.name }}</div>
+    <div class="stepup-context-scope">
+      {% if vs.scope_type == 'university' %}University-wide
+      {% elif vs.scope_type == 'institute' %}{{ vs.scope_institute }}
+      {% elif vs.scope_type == 'department' %}{{ vs.scope_institute }} · {{ vs.scope_department }}
+      {% endif %}
+    </div>
+  </div>
+
+  <form method="POST">
+    <label for="audit_password">Admin Password</label>
+    <div class="password-input-wrap">
+      <input type="password" id="audit_password" name="audit_password" required
+             placeholder="Enter your password" autofocus>
+      <button type="button" class="show-pw-btn" onclick="togglePw()" title="Show/hide password">
+        <svg id="pw-eye" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+        </svg>
+      </button>
+    </div>
+    <button type="submit" class="btn" style="margin-top:20px;">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="vertical-align:-2px; margin-right:6px;">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      </svg>
+      Verify & View Audit
+    </button>
+  </form>
+
+  <p class="center" style="margin-top:20px;">
+    <a href="{{ url_for('admin_system_dashboard', code=vs.code) }}" class="link-quiet">← Back to dashboard</a>
+  </p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function togglePw() {
+  const input = document.getElementById('audit_password');
+  const eye = document.getElementById('pw-eye');
+  if (input.type === 'password') {
+    input.type = 'text';
+    eye.innerHTML = `<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>`;
+  } else {
+    input.type = 'password';
+    eye.innerHTML = `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>`;
+  }
+}
+</script>
+{% endblock %}

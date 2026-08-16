@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard — CampusVote{% endblock %}
+{% block content %}
+<div class="card x-wide">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+    <div>
+      <h1 class="form-title">Election control panel</h1>
+      <p class="form-sub" style="margin-bottom:0;">{{ election_title }}</p>
+    </div>
+    <a href="{{ url_for('admin_logout') }}" class="link-quiet">Log out</a>
+  </div>
+
+  <div class="stat-strip mt-24">
+    <div class="stat"><span class="num">{{ turned_out }}</span><span class="lbl">Voted</span></div>
+    <div class="stat"><span class="num">{{ total_voters }}</span><span class="lbl">On roll</span></div>
+    <div class="stat">
+      <span class="badge {{ 'open' if voting_open else 'closed' }}">{{ 'VOTING OPEN' if voting_open else 'VOTING CLOSED' }}</span>
+      <form method="POST" style="margin-top:8px;">
+        <input type="hidden" name="action" value="toggle_voting">
+        <button type="submit" class="btn small {{ 'danger' if voting_open else '' }}">
+          {{ 'Close voting' if voting_open else 'Open voting' }}
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <h2 style="font-family:var(--font); font-size:18px; color:var(--text-dark);">Candidates</h2>
+  <table class="admin-table" style="margin-bottom:24px;">
+    <thead><tr><th>Name</th><th>Role / party</th><th></th></tr></thead>
+    <tbody>
+      {% for c in candidates %}
+      <tr>
+        <td>{{ c.name }}</td>
+        <td>{{ c.party_or_role or "—" }}</td>
+        <td>
+          <form method="POST" onsubmit="return confirm('Remove {{ c.name }}? This does not delete already-cast votes for them.');">
+            <input type="hidden" name="action" value="remove_candidate">
+            <input type="hidden" name="candidate_id" value="{{ c.id }}">
+            <button type="submit" class="btn small secondary">Remove</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="3">No candidates added yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h2 style="font-family:var(--font); font-size:18px; color:var(--text-dark);">Add a candidate</h2>
+  <form method="POST" style="max-width:420px;">
+    <input type="hidden" name="action" value="add_candidate">
+    <label for="name">Candidate name</label>
+    <input type="text" id="name" name="name" required style="margin-bottom:16px;">
+    <label for="role">Role / party (optional)</label>
+    <input type="text" id="role" name="role" placeholder="e.g. General Secretary">
+    <button type="submit" class="btn secondary">Add candidate</button>
+  </form>
+
+  <p class="mt-24"><a class="link-quiet" href="{{ url_for('results') }}">View public results page →</a></p>
+</div>
+{% endblock %}

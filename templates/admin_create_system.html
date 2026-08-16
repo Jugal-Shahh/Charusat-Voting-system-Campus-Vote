@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}Create Voting System — CampusVote{% endblock %}
+{% block page_title %}Create Election{% endblock %}
+{% block content %}
+<div class="card wide" style="padding:0;">
+  <div class="widget-header" style="margin:0; border-radius:var(--radius) var(--radius) 0 0;">
+    ➕ Create a New Voting System
+  </div>
+  <div style="padding:24px 28px;">
+    <p class="form-sub">Define the name and scope. You will add candidates in the next step.</p>
+
+    <form method="POST" autocomplete="off">
+      <label for="name">Election Name</label>
+      <input type="text" id="name" name="name" value="{{ name }}" required autofocus
+             placeholder="e.g. CSPIT General Secretary Election" style="margin-bottom:20px;">
+
+      <label for="max_choices">Votes Per Ballot (Selections Allowed per Voter)</label>
+      <input type="number" id="max_choices" name="max_choices" value="{{ max_choices or 1 }}" min="1" max="10" required
+             style="margin-bottom:20px; max-width:200px;">
+      <p class="form-sub" style="font-size:11px; margin-top:-14px; margin-bottom:20px;">Set how many candidates a voter can select on their ballot (Default: 1).</p>
+
+      <fieldset class="ballot-group" style="padding-top:12px;">
+        <legend>Voter Scope (Who is eligible to vote?)</legend>
+
+        <label class="ballot-option" style="padding-left:0; border-bottom:none;">
+          <input type="radio" name="scope_type" value="university" id="scope_uni" {% if scope_type == 'university' or not scope_type %}checked{% endif %} onclick="toggleScopeFields()">
+          <span class="name"><strong>University-wide</strong> (All imported voters)</span>
+        </label>
+
+        <label class="ballot-option" style="padding-left:0; border-bottom:none;">
+          <input type="radio" name="scope_type" value="institute" id="scope_inst" {% if scope_type == 'institute' %}checked{% endif %} onclick="toggleScopeFields()">
+          <span class="name"><strong>Specific Institute</strong></span>
+        </label>
+
+        <label class="ballot-option" style="padding-left:0; border-bottom:none;">
+          <input type="radio" name="scope_type" value="department" id="scope_dept" {% if scope_type == 'department' %}checked{% endif %} onclick="toggleScopeFields()">
+          <span class="name"><strong>Specific Department</strong></span>
+        </label>
+      </fieldset>
+
+      <div id="institute_block" style="display:none; margin-bottom:18px;">
+        <label for="scope_institute">Institute</label>
+        <select id="scope_institute" name="scope_institute" class="form-select" onchange="fetchDepartments()">
+          <option value="">-- Select Institute --</option>
+          {% for inst in all_institutes %}
+            {% if inst in available_institutes %}
+              <option value="{{ inst }}" {% if scope_institute == inst %}selected{% endif %}>{{ inst }}</option>
+            {% else %}
+              <option value="{{ inst }}" disabled>{{ inst }} (No voter data)</option>
+            {% endif %}
+          {% endfor %}
+        </select>
+      </div>
+
+      <div id="department_block" style="display:none; margin-bottom:24px;">
+        <label for="scope_department">Department</label>
+        <select id="scope_department" name="scope_department" class="form-select">
+          <option value="">-- Select Institute First --</option>
+        </select>
+        <p style="font-size:11px; color:var(--text-muted); margin-top:6px;">Only departments with imported voter data will appear here.</p>
+      </div>
+
+      <div style="margin-bottom:24px; padding:12px 14px; background:var(--input-bg); border-radius:var(--radius); border:1px solid #CBD5E1;">
+        <label style="display:flex; align-items:center; gap:10px; cursor:pointer; margin:0; font-weight:600; color:var(--text-dark);">
+          <input type="checkbox" name="allow_live_results" value="1" id="allow_live_results" style="width:18px; height:18px; margin:0; accent-color:var(--btn-blue);">
+          <span>Allow Public Live Results (Voters can view live counts while voting is active)</span>
+        </label>
+        <p style="font-size:11px; color:var(--text-muted); margin:4px 0 0 28px;">If unchecked, results remain hidden to voters until you close the election.</p>
+      </div>
+
+      <div style="margin-top:28px; display:flex; gap:12px; align-items:center;">
+        <button type="submit" class="btn" style="margin-top:0; width:auto;">Create Voting System</button>
+        <a href="{{ url_for('admin_my_systems') }}" class="link-quiet">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function toggleScopeFields() {
+    const uni = document.getElementById('scope_uni').checked;
+    const inst = document.getElementById('scope_inst').checked;
+    const dept = document.getElementById('scope_dept').checked;
+
+    document.getElementById('institute_block').style.display = (inst || dept) ? 'block' : 'none';
+    document.getElementById('department_block').style.display = dept ? 'block' : 'none';
+
+    if (dept && document.getElementById('scope_institute').value) {
+      fetchDepartments();
+    }
+  }
+
+  async function fetchDepartments() {
+    if (!document.getElementById('scope_dept').checked) return;
+
+    const inst = document.getElementById('scope_institute').value;
+    const deptSelect = document.getElementById('scope_department');
+    const prevVal = "{{ scope_department }}";
+
+    deptSelect.innerHTML = '<option value="">Loading...</option>';
+
+    if (!inst) {
+      deptSelect.innerHTML = '<option value="">-- Select Institute First --</option>';
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/departments/${inst}`);
+      const depts = await res.json();
+
+      deptSelect.innerHTML = '<option value="">-- Select Department --</option>';
+      for (const d of depts) {
+        const opt = document.createElement('option');
+        opt.value = d;
+        opt.textContent = d;
+        if (d === prevVal) opt.selected = true;
+        deptSelect.appendChild(opt);
+      }
+      if (depts.length === 0) {
+        deptSelect.innerHTML = '<option value="">-- No departments found for this institute --</option>';
+      }
+    } catch (e) {
+      deptSelect.innerHTML = '<option value="">-- Error loading departments --</option>';
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    toggleScopeFields();
+  });
+</script>
+{% endblock %}

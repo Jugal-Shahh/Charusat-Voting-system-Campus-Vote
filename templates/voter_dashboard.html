@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — CampusVote{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block content %}
+<div class="card wide" style="padding:0;">
+
+  <!-- Widget Header -->
+  <div class="widget-header" style="margin:0; border-radius:var(--radius) var(--radius) 0 0;">
+    🗳️ Voter Dashboard
+  </div>
+
+  <div style="padding:24px 28px;">
+    <h1 class="form-title">Welcome, {{ voter_name }}</h1>
+    {% if voter_on_roll %}
+      <p class="form-sub">
+        <span class="badge-inline">{{ session.get('voter_institute', 'N/A') }}</span>
+        {% if session.get('voter_department') %}
+          <span class="badge-inline">{{ session.get('voter_department') }}</span>
+        {% endif %}
+        &mdash; Voter ID: <code style="background:var(--input-bg); padding:2px 6px; border-radius:3px;">{{ session.get('voter_id') }}</code>
+      </p>
+    {% else %}
+      <div style="background:#FEF3C7; border:1px solid #F59E0B; border-radius:var(--radius); padding:10px 14px; margin-bottom:20px; font-size:12px; color:#92400E;">
+        Your ID (<code>{{ session.get('voter_id') }}</code>) is not on any imported voter roll.
+        You may not be eligible to vote in current elections. Contact your election administrator if this is an error.
+      </div>
+    {% endif %}
+
+    <h2 class="section-title">🗳️ Open Elections You Can Vote In</h2>
+
+    {% if eligible_systems %}
+      <div class="system-grid">
+        {% for sys in eligible_systems %}
+        <div class="system-card">
+          <div class="system-card-header">
+            <h3 class="system-name">{{ sys.name }}</h3>
+            <span class="badge open">OPEN</span>
+          </div>
+          <div class="system-meta">
+            <span class="scope-tag">
+              {% if sys.scope_type == 'university' %}University-wide
+              {% elif sys.scope_type == 'institute' %}{{ sys.scope_institute }}
+              {% elif sys.scope_type == 'department' %}{{ sys.scope_institute }} / {{ sys.scope_department }}
+              {% endif %}
+            </span>
+            <span class="code-tag">Code: {{ sys.code }}</span>
+          </div>
+          {% if sys.already_voted %}
+            <a href="{{ url_for('vote_results', code=sys.code) }}" class="btn small secondary" style="margin-top:12px;">
+              ✅ Already voted &mdash; View results
+            </a>
+          {% else %}
+            <a href="{{ url_for('vote_page', code=sys.code) }}" class="btn small" style="margin-top:12px;">
+              🗳️ Cast your vote
+            </a>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <p>No open elections available for your profile right now.</p>
+        <p style="font-size:12px; color:var(--text-muted);">If you have a voting code, enter it below.</p>
+      </div>
+    {% endif %}
+
+    <div style="margin-top:24px; padding-top:20px; border-top:1px solid #E5E7EB;">
+      <form method="POST" action="{{ url_for('join_by_code') }}">
+        <label for="code">Join by code</label>
+        <div class="input-row">
+          <input type="text" id="code" name="code" placeholder="e.g. A3K9X2" maxlength="6"
+                 style="text-transform:uppercase; letter-spacing:0.15em; text-align:center;">
+          <button type="submit" class="btn small" style="margin-top:0; width:auto;">Join</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

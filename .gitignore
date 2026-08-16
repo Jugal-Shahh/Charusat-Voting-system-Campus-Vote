@@ -1,0 +1,26 @@
+# Virtual environment
+venv/
+.venv/
+.conda/
+
+# Environment secrets (OAuth credentials)
+.env
+
+# Database
+campus_vote.db
+
+# Secret key (session signing)
+.secret_key
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db

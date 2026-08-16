@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Cast Your Vote — {{ vs.name }}{% endblock %}
+{% block page_title %}Cast Your Vote{% endblock %}
+{% block content %}
+<div class="card wide" style="padding:0;">
+  <div class="widget-header" style="margin:0; border-radius:var(--radius) var(--radius) 0 0;">
+    🗳️ Cast Your Ballot
+  </div>
+  <div style="padding:24px 28px;">
+    <div class="steps">
+      <span class="step"><span class="dot"></span>Verify Identity</span>
+      <span class="sep">—</span>
+      <span class="step active"><span class="dot"></span>Cast Ballot</span>
+      <span class="sep">—</span>
+      <span class="step"><span class="dot"></span>Confirmed</span>
+    </div>
+
+    <h1 class="form-title">{{ vs.name }}</h1>
+    <p class="form-sub">
+      Logged in as <strong>{{ voter_name }}</strong> (<code style="background:var(--input-bg); padding:2px 6px; border-radius:3px;">{{ voter.voter_id }}</code>).<br>
+      Choose one candidate or select NOTA. Your vote is anonymous once submitted.
+    </p>
+
+    <form method="POST">
+      <fieldset class="ballot-group">
+        <legend>
+          {% if vs.max_choices > 1 %}
+            Select up to {{ vs.max_choices }} options (or select NOTA)
+          {% else %}
+            Select one option
+          {% endif %}
+        </legend>
+        {% for c in candidates %}
+        <label class="ballot-option">
+          <input type="{{ 'radio' if vs.max_choices == 1 else 'checkbox' }}" name="vote" value="{{ c.id }}" class="cand-choice">
+          <span class="name">{{ c.name }}{% if c.party_or_role %} <span class="link-quiet">— {{ c.party_or_role }}</span>{% endif %}</span>
+        </label>
+        {% endfor %}
+        <label class="ballot-option">
+          <input type="{{ 'radio' if vs.max_choices == 1 else 'checkbox' }}" name="vote" value="NOTA" id="nota-choice" class="cand-choice">
+          <span class="name">NOTA</span>
+          <span class="nota-tag">NONE OF THE ABOVE</span>
+        </label>
+      </fieldset>
+
+      <div style="display:flex; gap:16px; align-items:center;">
+        <button type="submit" class="btn danger" style="width:auto;">Submit ballot — this cannot be undone</button>
+        <a href="{{ url_for('voter_dashboard') }}" class="link-quiet">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

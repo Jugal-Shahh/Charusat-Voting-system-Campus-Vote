@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block title %}Live Results — {{ vs.name }}{% endblock %}
+{% block content %}
+{% set total_votes = (candidates | sum(attribute='vote_count')) + nota_count %}
+{% set max_votes = (candidates | map(attribute='vote_count') | list | max) if candidates else 0 %}
+{% if nota_count > max_votes %}{% set max_votes = nota_count %}{% endif %}
+{% set pct_turnout = ((turnout / eligible * 100) if eligible else 0)|round|int %}
+
+<div class="card wide results-card">
+
+  <!-- Header -->
+  <div class="results-header">
+    <div class="results-header-left">
+      <div class="eyebrow-label" style="margin-bottom:6px;">
+        {% if vs.is_open %}
+        <span class="status-pill status-open" style="font-size:10px; padding:2px 8px;"><span class="pulse-dot"></span> LIVE RESULTS</span>
+        {% else %}
+        <span class="status-pill status-closed" style="font-size:10px; padding:2px 8px;">FINAL RESULTS</span>
+        {% endif %}
+      </div>
+      <h1 class="form-title" style="margin-bottom:4px;">{{ vs.name }}</h1>
+      <p class="form-sub" style="margin-bottom:0;">
+        {% if vs.scope_type == 'university' %}University-wide election
+        {% elif vs.scope_type == 'institute' %}{{ vs.scope_institute }} election
+        {% elif vs.scope_type == 'department' %}{{ vs.scope_institute }} · {{ vs.scope_department }} election
+        {% endif %}
+      </p>
+    </div>
+    {% if admin_signed_in %}
+    <a href="{{ url_for('admin_system_dashboard', code=vs.code) }}" class="ctrl-btn ctrl-btn--secondary" style="width:auto; text-decoration:none;">
+      ← Dashboard
+    </a>
+    {% endif %}
+  </div>
+
+  <!-- Turnout stats strip -->
+  <div class="results-stats-row">
+    <div class="results-stat-card">
+      <div class="rsc-icon">🗳️</div>
+      <div class="rsc-content">
+        <span class="rsc-num">{{ turnout }}</span>
+        <span class="rsc-lbl">Total Votes Cast</span>
+      </div>
+    </div>
+    <div class="results-stat-card">
+      <div class="rsc-icon">👥</div>
+      <div class="rsc-content">
+        <span class="rsc-num">{{ eligible }}</span>
+        <span class="rsc-lbl">Eligible Voters</span>
+      </div>
+    </div>
+    <div class="results-stat-card rsc-highlight">
+      <div class="rsc-content" style="align-items:center;">
+        <span class="rsc-num">{{ pct_turnout }}%</span>
+        <span class="rsc-lbl">Voter Turnout</span>
+      </div>
+      <div class="rsc-ring">
+        <svg viewBox="0 0 64 64" width="64" height="64">
+          <circle cx="32" cy="32" r="26" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="5"/>
+          <circle cx="32" cy="32" r="26" fill="none" stroke="var(--accent-orange)" stroke-width="5"
+            stroke-dasharray="{{ (pct_turnout / 100 * 163.36)|round(2) }} 163.36"
+            stroke-dashoffset="40.84"
+            stroke-linecap="round"
+            class="mini-ring-progress"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- Winner spotlight (only when voting is closed and there is a clear winner) -->
+  {% if not vs.is_open and candidates %}
+    {% set winner = candidates[0] %}
+    {% if winner.vote_count > 0 and (candidates | length < 2 or winner.vote_count > candidates[1].vote_count) %}
+    <div class="winner-spotlight">
+      <div class="winner-crown">👑</div>
+      <div class="winner-label">WINNER</div>
+      <div class="winner-name">{{ winner.name }}</div>
+      {% if winner.party_or_role %}
+      <div class="winner-role">{{ winner.party_or_role }}</div>
+      {% endif %}
+      <div class="winner-votes">{{ winner.vote_count }} votes · {{ "%.1f"|format((winner.vote_count / total_votes * 100) if total_votes else 0) }}%</div>
+    </div>
+    {% endif %}
+  {% endif %}
+
+  <!-- Results bars -->
+  <div class="results-section-title">
+    <h2 class="db-section-title">Vote Count</h2>
+    <span class="db-section-count">{{ total_votes }} total votes</span>
+  </div>
+
+  <div class="results-bars">
+    {% for c in candidates %}
+    {% set pct_vote = ((c.vote_count / total_votes * 100) if total_votes else 0)|round(1) %}
+    {% set bar_w = ((c.vote_count / max_votes * 100) if max_votes else 0)|round(1) %}
+    <div class="result-bar-row {% if loop.first and c.vote_count > 0 %}result-bar-row--leader{% endif %}">
+      <div class="rbar-avatar">{{ c.name[0].upper() }}</div>
+      <div class="rbar-content">
+        <div class="rbar-meta">
+          <div class="rbar-name">
+            {{ c.name }}
+            {% if c.party_or_role %}<span class="rbar-role">{{ c.party_or_role }}</span>{% endif %}
+            {% if loop.first and c.vote_count > 0 and (candidates|length < 2 or c.vote_count > candidates[1].vote_count) %}
+            <span class="rbar-leading-tag">Leading</span>
+            {% endif %}
+          </div>
+          <div class="rbar-count">
+            <span class="rbar-votes">{{ c.vote_count }}</span>
+            <span class="rbar-pct">{{ pct_vote }}%</span>
+          </div>
+        </div>
+        <div class="rbar-track">
+          <div class="rbar-fill {% if loop.first and c.vote_count > 0 %}rbar-fill--leader{% endif %}"
+               style="width: 0%;"
+               data-target="{{ bar_w }}"></div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+
+    <!-- NOTA row -->
+    {% set nota_pct = ((nota_count / total_votes * 100) if total_votes else 0)|round(1) %}
+    {% set nota_bar = ((nota_count / max_votes * 100) if max_votes else 0)|round(1) %}
+    <div class="result-bar-row result-bar-row--nota">
+      <div class="rbar-avatar rbar-avatar--nota">N</div>
+      <div class="rbar-content">
+        <div class="rbar-meta">
+          <div class="rbar-name">
+            None of the Above <span class="rbar-role">NOTA</span>
+          </div>
+          <div class="rbar-count">
+            <span class="rbar-votes">{{ nota_count }}</span>
+            <span class="rbar-pct">{{ nota_pct }}%</span>
+          </div>
+        </div>
+        <div class="rbar-track">
+          <div class="rbar-fill rbar-fill--nota" style="width: 0%;" data-target="{{ nota_bar }}"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer note -->
+  <div class="results-footer-note">
+    {% if vs.is_open %}
+    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    Results update as new votes are cast. Votes are anonymous — only the count is shown.
+    {% else %}
+    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+    Voting is closed. These are the final certified results.
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Animate bar fills
+  const fills = document.querySelectorAll('.rbar-fill');
+  fills.forEach((fill, i) => {
+    const target = fill.getAttribute('data-target');
+    setTimeout(() => {
+      fill.style.transition = 'width 1s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+      fill.style.width = target + '%';
+    }, 150 + i * 80);
+  });
+
+  // Animate mini ring
+  const miniRing = document.querySelector('.mini-ring-progress');
+  if (miniRing) {
+    const target = miniRing.getAttribute('stroke-dasharray');
+    miniRing.setAttribute('stroke-dasharray', '0 163.36');
+    setTimeout(() => {
+      miniRing.style.transition = 'stroke-dasharray 1.2s ease';
+      miniRing.setAttribute('stroke-dasharray', target);
+    }, 300);
+  }
+
+  // Auto-refresh every 30 seconds if voting is open
+  {% if vs.is_open %}
+  setTimeout(() => location.reload(), 30000);
+  {% endif %}
+});
+</script>
+{% endblock %}

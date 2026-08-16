@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% set hide_navbar = true %}
+{% block title %}CampusVote — CHARUSAT Election Portal{% endblock %}
+
+{% block content %}
+<div class="egov-login-container">
+  
+  <!-- COLUMN 1: 25 Years of Excellence (Left White Panel) -->
+  <div class="egov-excellence-panel">
+    <div class="egov-excellence-wrap">
+      <img src="{{ url_for('static', filename='img/25_years_excellence.png') }}" 
+           alt="25 Years of Excellence" 
+           class="egov-excellence-img">
+    </div>
+  </div>
+
+  <!-- COLUMN 2: 9 Institutes Strip (Orange Column) -->
+  <div class="egov-institutes-strip">
+    <div class="egov-inst-logo-card" title="P. D. Patel Institute of Applied Sciences (PDPIAS)">
+      <img src="{{ url_for('static', filename='img/institutes/pdpias.png') }}" alt="PDPIAS">
+    </div>
+    <div class="egov-inst-logo-card" title="Ramanbhai Patel College of Pharmacy (RPCP)">
+      <img src="{{ url_for('static', filename='img/institutes/rpcp.png') }}" alt="RPCP">
+    </div>
+    <div class="egov-inst-logo-card" title="Indukaka Ipcowala Institute of Management (IIIM)">
+      <img src="{{ url_for('static', filename='img/institutes/iiim.png') }}" alt="IIIM">
+    </div>
+    <div class="egov-inst-logo-card" title="Smt. Chandaben Mohanbhai Patel Institute of Computer Applications (CMPICA)">
+      <img src="{{ url_for('static', filename='img/institutes/cmpica.png') }}" alt="CMPICA">
+    </div>
+    <div class="egov-inst-logo-card" title="Chandubhai S Patel Institute of Technology (CSPIT)">
+      <img src="{{ url_for('static', filename='img/institutes/cspit.png') }}" alt="CSPIT">
+    </div>
+    <div class="egov-inst-logo-card" title="Devang Patel Institute of Advance Technology and Research (DEPSTAR)">
+      <img src="{{ url_for('static', filename='img/institutes/depstar.jpg') }}" alt="DEPSTAR">
+    </div>
+    <div class="egov-inst-logo-card" title="Ashok & Rita Patel Institute of Physiotherapy (ARIP)">
+      <img src="{{ url_for('static', filename='img/institutes/arip.jpg') }}" alt="ARIP">
+    </div>
+    <div class="egov-inst-logo-card" title="Manikaka Topawala Institute of Nursing (MTIN)">
+      <img src="{{ url_for('static', filename='img/institutes/mtin.jpg') }}" alt="MTIN">
+    </div>
+    <div class="egov-inst-logo-card" title="B. D. Patel Institute of Allied Sciences / Paramedical (BDIAS)">
+      <img src="{{ url_for('static', filename='img/institutes/bdias.jpg') }}" alt="BDIAS">
+    </div>
+  </div>
+
+  <!-- COLUMN 3: Campus Background & Login Card -->
+  <div class="egov-stage">
+    <div class="egov-stage-overlay"></div>
+
+    <!-- Login Card -->
+    <div class="egov-login-card">
+      <div class="egov-card-header">
+        <img src="{{ url_for('static', filename='img/Charusat.png') }}" alt="CHARUSAT" class="egov-brand-logo">
+      </div>
+
+      <div class="egov-card-divider">
+        <span>Gateway to CampusVote</span>
+      </div>
+
+      <div class="egov-card-body">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="flash {{ category }}" style="margin-bottom:16px;">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <p class="egov-subtext">
+          Official University Election Portal &middot; CHARUSAT<br>
+          Sign in with your official account to cast your ballot.
+        </p>
+
+        <!-- Primary Sign In Action -->
+        {% if oauth_configured %}
+        <a href="{{ url_for('auth_google') }}" class="egov-btn-primary" style="text-decoration:none;">
+          <svg class="google-icon" viewBox="0 0 24 24" width="18" height="18">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#fff"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#fff"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#fff"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#fff"/>
+          </svg>
+          <span>Sign in with Google to Vote</span>
+        </a>
+        {% else %}
+        <a href="{{ url_for('dev_login') }}" class="egov-btn-primary" style="text-decoration:none;">
+          <span>Sign in to Vote (Dev Mode)</span>
+        </a>
+        {% endif %}
+
+        <!-- Join by Code Section -->
+        <div class="egov-or-divider">
+          <span>or join by election code</span>
+        </div>
+
+        <form method="POST" action="{{ url_for('join_by_code') }}" autocomplete="off">
+          <div class="egov-input-group">
+            <span class="egov-input-icon">
+              <svg width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </span>
+            <input type="text" name="code" placeholder="ENTER 6-DIGIT VOTING CODE" maxlength="6"
+                   class="egov-input-field egov-code-field" style="padding-left:44px !important;" required>
+          </div>
+          <button type="submit" class="egov-btn-secondary">
+            <span>🗳️ Join Election</span>
+          </button>
+        </form>
+
+        <!-- Admin Login Link -->
+        <div class="egov-card-footer">
+          <a href="{{ url_for('admin_login') }}" class="egov-link-admin">
+            Election Administrator? Log in here &rarr;
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Right Chevron Accent -->
+    <div class="egov-corner-accent" aria-hidden="true"></div>
+  </div>
+
+</div>
+
+<!-- Bottom Black Copyright Footer -->
+<footer class="egov-fixed-footer">
+  &copy; 2026 Charotar University of Science & Technology. All Rights Reserved.
+</footer>
+{% endblock %}

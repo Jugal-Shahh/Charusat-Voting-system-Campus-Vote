@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}My Voting Systems — CharusatVote{% endblock %}
+{% block content %}
+<div class="card x-wide dashboard-card">
+
+  <!-- Page header -->
+  <div class="dash-header">
+    <div>
+      <div class="eyebrow-label">Election Administrator</div>
+      <h1 class="form-title" style="margin-bottom:4px;">My Voting Systems</h1>
+      <p class="form-sub" style="margin-bottom:0;">Create, manage, and monitor your campus elections.</p>
+    </div>
+    <a href="{{ url_for('admin_create_system') }}" class="btn small dash-create-btn">
+      <span class="btn-icon">+</span> Create Election
+    </a>
+  </div>
+
+  <!-- Summary row -->
+  {% if systems %}
+  {% set total_open = systems | selectattr('is_open') | list | length %}
+  {% set total_voted = systems | sum(attribute='turnout') %}
+  {% set total_eligible = systems | sum(attribute='eligible') %}
+  <div class="summary-strip">
+    <div class="summary-stat">
+      <span class="summary-num">{{ systems | length }}</span>
+      <span class="summary-lbl">Total Elections</span>
+    </div>
+    <div class="summary-divider"></div>
+    <div class="summary-stat">
+      <span class="summary-num open-num">{{ total_open }}</span>
+      <span class="summary-lbl">Live Now</span>
+    </div>
+    <div class="summary-divider"></div>
+    <div class="summary-stat">
+      <span class="summary-num">{{ total_voted }}</span>
+      <span class="summary-lbl">Total Votes Cast</span>
+    </div>
+    <div class="summary-divider"></div>
+    <div class="summary-stat">
+      <span class="summary-num">{{ "%.0f"|format((total_voted / total_eligible * 100) if total_eligible else 0) }}%</span>
+      <span class="summary-lbl">Avg Turnout</span>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Election cards grid -->
+  <div class="election-grid">
+    {% for sys in systems %}
+    {% set pct = ((sys.turnout / sys.eligible * 100) if sys.eligible else 0)|round|int %}
+    <div class="election-card {{ 'election-card--open' if sys.is_open else '' }}"
+         onclick="window.location='{{ url_for('admin_system_dashboard', code=sys.code) }}'">
+
+      <!-- Status ribbon -->
+      <div class="election-status-bar">
+        {% if sys.is_open %}
+        <span class="status-pill status-open">
+          <span class="pulse-dot"></span> LIVE
+        </span>
+        {% else %}
+        <span class="status-pill status-closed">CLOSED</span>
+        {% endif %}
+        <span class="election-code">{{ sys.code }}</span>
+      </div>
+
+      <!-- Election name & scope -->
+      <div class="election-info">
+        <h3 class="election-name">{{ sys.name }}</h3>
+        <div class="election-scope">
+          <span class="scope-icon">🏛</span>
+          {% if sys.scope_type == 'university' %}University-wide
+          {% elif sys.scope_type == 'institute' %}{{ sys.scope_institute }}
+          {% elif sys.scope_type == 'department' %}{{ sys.scope_institute }} · {{ sys.scope_department }}
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Turnout progress -->
+      <div class="turnout-section">
+        <div class="turnout-label-row">
+          <span class="turnout-label">Voter Turnout</span>
+          <span class="turnout-pct">{{ pct }}%</span>
+        </div>
+        <div class="turnout-track">
+          <div class="turnout-fill {{ 'turnout-high' if pct >= 60 else ('turnout-mid' if pct >= 30 else '') }}"
+               style="width: {{ pct }}%;"></div>
+        </div>
+        <div class="turnout-counts">
+          <span>{{ sys.turnout }} voted</span>
+          <span>{{ sys.eligible }} eligible</span>
+        </div>
+      </div>
+
+      <!-- Footer stats -->
+      <div class="election-footer">
+        <div class="efooter-stat">
+          <span class="efooter-num">{{ sys.candidate_count }}</span>
+          <span class="efooter-lbl">Candidates</span>
+        </div>
+        <div class="efooter-divider"></div>
+        <div class="efooter-stat">
+          <span class="efooter-num">{{ sys.turnout }}</span>
+          <span class="efooter-lbl">Votes Cast</span>
+        </div>
+        <div class="efooter-action">
+          Manage →
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <div class="empty-election-state">
+      <div class="empty-icon">🗳️</div>
+      <h3>No elections yet</h3>
+      <p>Create your first voting system to get started. Students can join instantly with a unique 6-digit code.</p>
+      <a href="{{ url_for('admin_create_system') }}" class="btn small" style="width:auto; margin:0 auto; display:block; max-width:200px;">Create First Election</a>
+    </div>
+    {% endfor %}
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Animate turnout bars on load
+  document.addEventListener('DOMContentLoaded', function() {
+    const fills = document.querySelectorAll('.turnout-fill');
+    fills.forEach(fill => {
+      const target = fill.style.width;
+      fill.style.width = '0%';
+      setTimeout(() => {
+        fill.style.transition = 'width 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+        fill.style.width = target;
+      }, 100);
+    });
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% block title %}{{ vs.name }} — Admin Dashboard{% endblock %}
+{% block content %}
+{% set pct = ((turnout / eligible * 100) if eligible else 0)|round|int %}
+
+<div class="card x-wide dashboard-card">
+
+  <!-- Breadcrumb + title -->
+  <div class="dash-header" style="margin-bottom:24px;">
+    <div>
+      <div class="eyebrow-label">
+        <a href="{{ url_for('admin_my_systems') }}" class="breadcrumb-link">My Elections</a>
+        <span class="breadcrumb-sep">›</span>
+        <span>{{ vs.name }}</span>
+      </div>
+      <h1 class="form-title" style="margin-bottom:4px;">{{ vs.name }}</h1>
+      <p class="form-sub" style="margin-bottom:0;">
+        Scope:
+        {% if vs.scope_type == 'university' %}<strong>University-wide</strong>
+        {% elif vs.scope_type == 'institute' %}<strong>{{ vs.scope_institute }}</strong>
+        {% elif vs.scope_type == 'department' %}<strong>{{ vs.scope_institute }}</strong> / <strong>{{ vs.scope_department }}</strong>
+        {% endif %}
+      </p>
+    </div>
+    <div style="display:flex; gap:10px; align-items:center;">
+      {% if vs.is_open %}
+        <span class="status-pill status-open"><span class="pulse-dot"></span> LIVE</span>
+      {% else %}
+        <span class="status-pill status-closed">CLOSED</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       TOP ROW: Share code + Stats + Controls
+  ══════════════════════════════════════════════════════ -->
+  <div class="db-top-row">
+
+    <!-- Share box -->
+    <div class="share-panel">
+      <div class="share-panel-label">JOIN CODE</div>
+      <div class="share-code">{{ vs.code }}</div>
+      <div class="share-link-row">
+        <span class="share-url" id="share-url-text">{{ share_link }}</span>
+        <button class="copy-btn" onclick="copyLink()" id="copy-btn" title="Copy link">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          Copy
+        </button>
+      </div>
+    </div>
+
+    <!-- Stats panel -->
+    <div class="stats-panel">
+      <div class="stats-ring-area">
+        <svg class="ring-svg" viewBox="0 0 120 120" width="120" height="120">
+          <circle cx="60" cy="60" r="48" fill="none" stroke="#E5E7EB" stroke-width="8"/>
+          <circle cx="60" cy="60" r="48" fill="none" stroke="var(--btn-blue)" stroke-width="8"
+            stroke-dasharray="{{ (pct / 100 * 301.59) | round(2) }} 301.59"
+            stroke-dashoffset="75.4"
+            stroke-linecap="round"
+            class="ring-progress"
+            id="ring-progress"/>
+          <text x="60" y="56" text-anchor="middle" font-family="var(--font)" font-size="22" font-weight="600" fill="var(--text-dark)">{{ pct }}%</text>
+          <text x="60" y="72" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--text-muted)">TURNOUT</text>
+        </svg>
+      </div>
+      <div class="stats-numbers">
+        <div class="stat-item">
+          <span class="stat-big">{{ turnout }}</span>
+          <span class="stat-lbl">Voted</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-big">{{ eligible }}</span>
+          <span class="stat-lbl">Eligible</span>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <span class="stat-big">{{ candidates | length }}</span>
+          <span class="stat-lbl">Candidates</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Controls panel -->
+    <div class="controls-panel">
+      <div class="controls-label">Election Controls</div>
+
+      <form method="POST" id="toggle-form">
+        <input type="hidden" name="action" value="toggle_voting">
+        <button type="submit" class="ctrl-btn {{ 'ctrl-btn--danger' if vs.is_open else 'ctrl-btn--primary' }}"
+                onclick="return confirm('{{ 'Close voting? Results will be locked.' if vs.is_open else 'Open voting? Eligible voters can now cast ballots.' }}')">
+          {% if vs.is_open %}
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+          Close Voting
+          {% else %}
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Open Voting
+          {% endif %}
+        </button>
+      </form>
+
+      <form method="POST" id="toggle-live-results-form">
+        <input type="hidden" name="action" value="toggle_live_results">
+        <button type="submit" class="ctrl-btn ctrl-btn--secondary" title="Toggle public live results for voters">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          {{ 'Public Results: ON' if vs.allow_live_results else 'Public Results: OFF' }}
+        </button>
+      </form>
+
+      <a href="{{ url_for('vote_results', code=vs.code) }}" class="ctrl-btn ctrl-btn--secondary" target="_blank">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        Live Results
+      </a>
+
+      <a href="{{ url_for('admin_audit', code=vs.code) }}" class="ctrl-btn ctrl-btn--secondary">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        Audit Log
+      </a>
+    </div>
+
+  </div><!-- /db-top-row -->
+
+  <div class="db-section-divider"></div>
+
+  <!-- ═══════════════════════════════════════════════════
+       CANDIDATES SECTION
+  ══════════════════════════════════════════════════════ -->
+  <div class="db-section-header">
+    <h2 class="db-section-title">Candidates</h2>
+    <span class="db-section-count">{{ candidates | length }} active</span>
+  </div>
+
+  {% if candidates %}
+  <div class="candidates-list">
+    {% for c in candidates %}
+    <div class="candidate-row">
+      <div class="candidate-avatar">{{ c.name[0].upper() }}</div>
+      <div class="candidate-info">
+        <div class="candidate-name">{{ c.name }}</div>
+        <div class="candidate-role">{{ c.party_or_role or "No role specified" }}</div>
+      </div>
+      <form method="POST" class="candidate-remove-form"
+            onsubmit="return confirm('Remove {{ c.name }}? Existing votes for them are preserved in the count.')">
+        <input type="hidden" name="action" value="remove_candidate">
+        <input type="hidden" name="candidate_id" value="{{ c.id }}">
+        <button type="submit" class="remove-btn" title="Remove candidate">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+          </svg>
+          Remove
+        </button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-candidates">
+    <div class="empty-icon-sm">👤</div>
+    <p>No candidates added yet. Voters will only see NOTA.</p>
+  </div>
+  {% endif %}
+
+  <!-- Add candidate form -->
+  <div class="add-candidate-panel">
+    <div class="db-section-header" style="margin-bottom:16px;">
+      <h2 class="db-section-title">Add a Candidate</h2>
+    </div>
+    <form method="POST" class="add-candidate-form" id="add-candidate-form">
+      <input type="hidden" name="action" value="add_candidate">
+      <div class="add-candidate-fields">
+        <div class="field-group">
+          <label for="cname">Full Name <span class="field-required">*</span></label>
+          <input type="text" id="cname" name="name" required placeholder="e.g. Priya Sharma" autocomplete="off">
+        </div>
+        <div class="field-group">
+          <label for="crole">Role / Party</label>
+          <input type="text" id="crole" name="role" placeholder="e.g. General Secretary" autocomplete="off">
+        </div>
+        <button type="submit" class="btn small add-cand-btn" style="align-self:flex-end; margin-top:0;">
+          Add Candidate
+        </button>
+      </div>
+    </form>
+  </div>
+
+</div><!-- /card -->
+{% endblock %}
+
+{% block scripts %}
+<script>
+function copyLink() {
+  const text = document.getElementById('share-url-text').textContent.trim();
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = '✓ Copied!';
+    btn.style.background = 'var(--green)';
+    btn.style.color = '#fff';
+    setTimeout(() => {
+      btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> Copy`;
+      btn.style.background = '';
+      btn.style.color = '';
+    }, 2000);
+  });
+}
+
+// Animate ring on load
+document.addEventListener('DOMContentLoaded', function() {
+  const ring = document.getElementById('ring-progress');
+  if (ring) {
+    const target = ring.getAttribute('stroke-dasharray').split(' ')[0];
+    ring.setAttribute('stroke-dasharray', `0 301.59`);
+    setTimeout(() => {
+      ring.style.transition = 'stroke-dasharray 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+      ring.setAttribute('stroke-dasharray', `${target} 301.59`);
+    }, 200);
+  }
+});
+</script>
+{% endblock %}
