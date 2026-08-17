@@ -1,101 +1,258 @@
-# CampusVote — CHARUSAT Student Council Election
+# CampusVote
 
-A rebuilt version of your terminal EVM project as a real website: Flask backend,
-SQLite database, and an HTML/CSS frontend. Tested end-to-end (login, voting,
-double-vote blocking, results, admin, audit) before handing this over.
+**Official multi-tenant election platform for CHARUSAT University.**
 
-## What changed from your original C++ version
+CampusVote lets any verified CHARUSAT student or staff member create and run their own
+scoped election — from a single department to the whole university — with real identity
+verification, structurally anonymous voting, and live results.
 
-- **Double voting is now blocked.** Your original code never marked a voter as
-  "already voted" — the same ID could vote unlimited times. This was the most
-  important fix.
-- **Votes are structurally anonymous.** The `votes` table has no `voter_id`
-  column at all. A separate `turnout_log` table proves *who* voted and *when*,
-  for audit purposes, but nothing in the database links a person to their choices.
-- **No hardcoded passwords in source code.** Admin/auditor passwords are hashed
-  and stored in the database, seeded once via `init_db.py`.
-- **A real database instead of fixed-size arrays.** No more `new Candidate[50]`
-  silently breaking past 50 candidates, and data now survives a restart.
-- **Two staff roles**: `admin` (manage candidates, open/close voting) and
-  `auditor` (turnout log only — cannot see vote choices).
+---
 
-## Project structure
+## Table of Contents
+
+- [Features](#features)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Setup — Local Development](#setup--local-development)
+- [Setup — Google OAuth](#setup--google-oauth)
+- [Deployment](#deployment)
+- [Institute & Department ID Patterns](#institute--department-id-patterns)
+- [Anonymity & Security Design](#anonymity--security-design)
+- [Known Limitations](#known-limitations)
+- [Roadmap](#roadmap)
+
+---
+
+## Features
+
+### Identity & eligibility
+- **Google OAuth sign-in**, restricted to `@charusat.edu.in` and `@charusat.ac.in` accounts
+  only — no separate password to manage, no custom email verification system.
+- **Automatic eligibility detection** — a signed-in student's institute, department, and
+  admission year are parsed directly from their verified CHARUSAT email address, no manual
+  roster lookup required.
+- **Graceful rejection, never a crash** — any ineligible sign-in (wrong domain, unrecognized
+  ID format, wrong department for a given election) shows a clear message and returns the
+  person to a normal page.
+
+### Creating an election
+- Any verified user can create a voting system after signing in.
+- Three scopes to choose from:
+  - **University-wide** — every eligible CHARUSAT student.
+  - **Institutional** — scoped to one of CHARUSAT's institutes.
+  - **Departmental** — scoped to one specific department within an institute.
+- Institutes/departments without a configured ID pattern are shown as **"not available"**
+  rather than silently allowing a broken election to be created.
+- Configurable **votes-per-ballot** (default: 1) — not hardcoded to any fixed number, so a
+  single-position election and a multi-seat election both work correctly.
+- On creation, a unique **code and shareable link** are generated for voters to join.
+
+### Voting
+- Personal voter dashboard listing every currently open election the signed-in person is
+  eligible for.
+- **Join by code/link** for elections not automatically listed.
+- NOTA available on every ballot.
+- **One vote per eligible voter per election**, enforced atomically — reload, back button,
+  multiple tabs, or resubmission cannot produce a duplicate vote.
+
+### Admin tools
+- Add/remove candidates, open/close voting, per-election dashboard.
+- Live turnout count while voting is open.
+- **Step-up authentication**: viewing the turnout/audit log requires re-entering the account
+  password, even within an active session.
+- A single admin account can own and manage multiple voting systems.
+
+### Results & audit
+- Results visible to voters once the admin closes voting; admin can see live turnout counts
+  (not vote content) at any time while open.
+- Turnout/audit log shows **who voted and when only** — never what they voted for.
+
+---
+
+## Architecture
+
+CampusVote is a **multi-tenant** system: one deployment can run many independent, concurrent
+elections, each fully isolated from the others (candidates, votes, and turnout are all scoped
+per voting-system-instance).
+
+```
+┌─────────────┐      ┌──────────────┐      ┌────────────────┐
+│   Browser    │ ───▶ │  Flask App   │ ───▶ │  PostgreSQL     │
+│ (voter/admin)│      │  (Render)    │      │  (Neon)         │
+└─────────────┘      └──────┬───────┘      └────────────────┘
+                             │
+                             ▼
+                     ┌───────────────┐
+                     │  Google OAuth  │
+                     │ (identity only)│
+                     └───────────────┘
+```
+
+The identity provider (Google) only confirms *who someone is*. Eligibility (*what they can
+vote in*) is derived independently, by parsing their verified email against a configurable
+table of institute/department ID patterns — it does not depend on a pre-imported voter roster.
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Backend | Python, Flask |
+| Database | PostgreSQL (hosted on [Neon](https://neon.tech), free tier) |
+| Auth | Google OAuth 2.0 (Authlib), domain-restricted |
+| Hosting | [Render](https://render.com) (free tier, persistent web service) |
+| Frontend | Server-rendered HTML/Jinja templates, custom CSS |
+| Uptime | [UptimeRobot](https://uptimerobot.com), free tier |
+
+---
+
+## Project Structure
 
 ```
 campus_vote/
-├── app.py              # Flask backend (all routes/logic)
-├── schema.sql           # database structure
-├── init_db.py            # run once: creates campus_vote.db
-├── import_voters.py      # run once: loads voters.txt into the database
-├── voters.txt             # your voter roll (ID <TAB> Full Name)
+├── app.py                  # Main Flask application, routes
+├── db_wrapper.py            # Database connection layer (SQLite locally / Postgres in prod)
+├── id_parser.py              # Institute/department ID pattern matching
+├── init_db.py                 # One-time DB schema setup + seeding
+├── import_voters.py            # Optional: import a backup voter roster (see below)
+├── schema.sql                   # Database schema
 ├── requirements.txt
-├── templates/            # HTML pages
-└── static/css/style.css   # all styling
+├── .env.example                  # Template for required environment variables
+├── static/
+│   ├── css/style.css              # Shared design tokens and styling
+│   └── img/                        # Logos, backgrounds
+├── templates/
+│   ├── base.html                    # Shared layout, navbar
+│   ├── home.html                     # Landing page (sign in / join election)
+│   ├── voter_login.html, voter_dashboard.html
+│   ├── admin_login.html, admin_register.html, admin_dashboard.html
+│   ├── admin_create_system.html, admin_my_systems.html, admin_stepup_auth.html
+│   ├── admin_system_dashboard.html
+│   ├── vote.html, results.html, thank_you.html
+│   └── audit_log.html
+└── voters.txt                        # Backup roster (CSPIT/DEPSTAR only — see below)
 ```
 
-## Running it locally
+---
+
+## Setup — Local Development
 
 ```bash
+git clone <your-repo-url>
 cd campus_vote
+
 python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
+venv\Scripts\activate           # Windows
+# source venv/bin/activate      # Mac/Linux
+
 pip install -r requirements.txt
-
-python init_db.py               # creates campus_vote.db
-python import_voters.py voters.txt
-
-python app.py                   # starts at http://127.0.0.1:5000
 ```
 
-Default staff logins (**change these — see "Before going live" below**):
-- Admin: `admin` / `ChangeMe123!` → manage candidates, open/close voting
-- Auditor: `auditor` / `ChangeMe456!` → turnout log only
+Create a `.env` file (copy `.env.example`) and fill in:
+```
+DATABASE_URL=postgresql://...          # from Neon, or omit to fall back to local SQLite
+SECRET_KEY=<generate with: python -c "import secrets; print(secrets.token_hex(32))">
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+```
 
-Voting only works for students on the roll, and only while an admin has
-switched voting to "OPEN" from the dashboard.
+Then:
+```bash
+python init_db.py
+python app.py
+```
+Visit `http://127.0.0.1:5000`.
 
-## Adding the official CHARUSAT logo
+---
 
-Once you have the image files:
-1. Put the logo file in `static/img/` (e.g. `static/img/charusat-logo.png`).
-2. In `templates/base.html`, replace the `<div class="crest">CU</div>` block with:
-   ```html
-   <img src="{{ url_for('static', filename='img/charusat-logo.png') }}" alt="CHARUSAT" style="height:40px;">
-   ```
-3. If you want official brand colors instead of the navy/maroon/brass palette
-   I used, tell me the hex codes and I'll swap the tokens at the top of
-   `static/css/style.css` — everything else references those variables, so
-   it's a small change.
+## Setup — Google OAuth
 
-## Before this goes live for a real election
+1. Create a project at [console.cloud.google.com](https://console.cloud.google.com).
+2. **APIs & Services → OAuth consent screen** → User Type: External → fill in app details →
+   add scopes `email`, `profile`, `openid` → add CHARUSAT test-user emails.
+3. **APIs & Services → Credentials → Create Credentials → OAuth client ID** → Web application
+   → add redirect URIs for both local (`http://127.0.0.1:5000/auth/google/callback`) and
+   production (`https://your-app.onrender.com/auth/google/callback`).
+4. Copy the Client ID and Secret into `.env` (local) and Render's Environment tab (production).
 
-These are the honest gaps between "working demo" and "production-safe for
-3000+ real voters" — worth doing in roughly this order:
+**Note**: while unpublished, only accounts added as test users can sign in, and each
+test-user session expires after 7 days. For a real campus-wide launch, submit for Google's
+brand verification (typically ~2–3 business days for non-sensitive scopes like these).
 
-1. **Change the default admin/auditor passwords immediately** (`init_db.py`
-   seeds placeholders — update the account after first login, or edit the
-   script before running it).
-2. **Deploy behind HTTPS.** Right now this runs on plain HTTP for local
-   testing. A real vote must not travel unencrypted. Cheapest path: deploy to
-   a host like Render, Railway, or PythonAnywhere, which give you HTTPS for
-   free, or put it behind your university's existing web server with a
-   Let's Encrypt certificate.
-3. **Use a production server**, not `python app.py`'s built-in dev server —
-   e.g. `gunicorn app:app` behind Nginx.
-4. **Switch `SESSION_COOKIE_SECURE = True`** in `app.py` once you're on HTTPS.
-5. **Rate-limit the voter ID login** (e.g. with `Flask-Limiter`) so someone
-   can't script through thousands of ID guesses.
-6. **Back up `campus_vote.db` periodically** during the voting window — it's
-   a single file, easy to copy, but easy to lose too.
-7. Consider **getting a short security/process review from your faculty
-   advisor or university IT** before treating results as official — that's
-   a policy question as much as a technical one, given this decides a real
-   election.
+---
 
-## Notes on the design
+## Deployment
 
-I gave it a deliberately "official ballot" identity rather than a generic
-app look — navy ink, a brass rule, a maroon wax-seal-style stamp on the
-confirmation screen, and monospace type for ID numbers and timestamps
-(echoing how enrollment IDs are already formatted). Swap the palette in
-`static/css/style.css` if you get real CHARUSAT brand colors.
+Deployed on **Render** (free tier) with a **Neon** Postgres database.
+
+- **Build Command**: `pip install -r requirements.txt`
+- **Start Command**: `gunicorn app:app --bind 0.0.0.0:$PORT`
+- **Environment Variables** (set in Render's dashboard, never committed):
+  `DATABASE_URL`, `SECRET_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
+
+Render's free tier sleeps after 15 minutes of inactivity; a free UptimeRobot monitor pings
+the live URL every 5 minutes to prevent this.
+
+---
+
+## Institute & Department ID Patterns
+
+Eligibility is determined by parsing each voter's CHARUSAT email against a data-driven
+pattern table (`institute_id_patterns`) — adding a new institute later is a data insert, not
+a code change.
+
+**General shape**: `[d]<2-digit year><department code><3-digit number>@charusat.edu.in`
+— an optional lowercase `d` prefix marks a diploma student; the same rule applies uniformly
+across every institute (no institute-specific exceptions).
+
+| Institute | Departments configured | Notes |
+|---|---|---|
+| CSPIT | CS, CE, IT, AIML, CL, EC, ME, EE | Full diploma support |
+| DEPSTAR | DCS, DCE, DIT | Full diploma support |
+| IIIM | BBA, MBA | |
+| RPCP | B.Pharm, M.Pharm | |
+| PDPIAS | B.Sc | |
+| CMPICA | BCA, MCA, B.Sc IT, M.Sc IT | |
+| BDIAS | BSMT, BMIT | |
+| ARIP | BPT, MPT | |
+| MTIN | *(not yet configured)* | Shown as "not available" until patterns are added |
+
+`voters.txt` / the `voters` table holds a **backup roster for CSPIT and DEPSTAR only** — it
+is not the live source of truth for eligibility once OAuth is active. It exists for
+cross-checking turnout and capturing names for the two institutes it covers; the other
+institutes' student names are captured live from their Google profile on first sign-in.
+
+---
+
+## Anonymity & Security Design
+
+These properties are foundational and must be preserved in any future change:
+
+- **No database table, join, or query anywhere links a specific voter to their specific vote
+  choice.** The `votes` table has no `voter_id` column at all.
+- Turnout is tracked separately (`turnout_log`), proving *who* voted and *when* without
+  revealing *what* they chose — this is what the audit log shows, and all it ever shows.
+- Vote recording and marking a voter as having voted happen **atomically**, scoped per
+  election, preventing double-voting even under concurrent requests.
+- Identity is verified by Google, not stored as a password anywhere in this system.
+- Server-side domain verification on every OAuth callback — the `hd` parameter alone is a UI
+  hint, not a security boundary, and is not relied upon as one.
+
+---
+
+## Known Limitations
+
+- Render's free tier has a cold-start delay (~30–60s) if the uptime pinger ever lapses.
+- Google OAuth is capped at 100 test users / 7-day session expiry until the app is verified.
+- MTIN institute data is not yet available.
+- PostgreSQL/SQLite compatibility is handled by a custom translation layer (`db_wrapper.py`)
+  rather than an ORM — new query patterns should be tested against both backends.
+
+## Roadmap
+
+- [ ] Add MTIN institute ID patterns once available
+- [ ] Submit for Google OAuth brand verification
+- [ ] Consider migrating `db_wrapper.py`'s manual SQL translation to a proper ORM if the
+      project continues to grow
