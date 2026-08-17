@@ -53,6 +53,14 @@
     <div class="egov-login-card">
       <div class="egov-card-header">
         <img src="{{ url_for('static', filename='img/Charusat.png') }}" alt="CHARUSAT" class="egov-brand-logo">
+        <button type="button" class="egov-features-btn" onclick="openFeaturesModal()" title="Explore Platform Features">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="16" x2="12" y2="12"/>
+            <line x1="12" y1="8" x2="12.01" y2="8"/>
+          </svg>
+          <span>Features</span>
+        </button>
       </div>
 
       <div class="egov-card-divider">
@@ -108,12 +116,18 @@
           </button>
         </form>
 
-        <!-- Admin Login Link -->
-        <div class="egov-card-footer">
-          <a href="{{ url_for('admin_login') }}" class="egov-link-admin">
-            Election Administrator? Log in here &rarr;
-          </a>
+        <!-- Become Host / Admin Section -->
+        <div class="egov-or-divider" style="margin-top:18px;">
+          <span>or host an election system</span>
         </div>
+
+        <a href="{{ url_for('admin_login') }}" class="egov-btn-host" style="text-decoration:none;">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+          <span>🏛️ Host an Election / Admin Portal</span>
+        </a>
+        <p class="egov-host-subtext">
+          Anyone can register to host &amp; manage custom university elections.
+        </p>
       </div>
     </div>
 
@@ -123,8 +137,123 @@
 
 </div>
 
+<!-- Features Explanatory Modal -->
+<div class="egov-features-modal-backdrop" id="featuresModalBackdrop" onclick="closeFeaturesModal()">
+  <div class="egov-features-modal" onclick="event.stopPropagation()">
+    <div class="egov-features-header">
+      <div class="egov-features-title-group">
+        <div class="egov-features-logo-badge">
+          <img src="{{ url_for('static', filename='img/Charusat.png') }}" alt="CampusVote Logo">
+        </div>
+        <div>
+          <h2 class="egov-features-modal-title">CampusVote Features</h2>
+          <p class="egov-features-modal-subtitle">Official CHARUSAT Election Platform Capabilities</p>
+        </div>
+      </div>
+      <button type="button" class="egov-features-close" onclick="closeFeaturesModal()" aria-label="Close modal">&times;</button>
+    </div>
+
+    <div class="egov-features-body">
+      <div class="egov-feature-grid">
+
+        <div class="egov-feature-card">
+          <div class="egov-feature-icon-box" style="background:#E0F2FE; color:#0284C7;">
+            <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+          </div>
+          <div class="egov-feature-info">
+            <h4>Host Your Own Election</h4>
+            <p>Every student and faculty member can become a Host/Admin to create custom election systems for councils, clubs, and societies.</p>
+          </div>
+        </div>
+
+        <div class="egov-feature-card">
+          <div class="egov-feature-icon-box" style="background:#DCFCE7; color:#16A34A;">
+            <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+          </div>
+          <div class="egov-feature-info">
+            <h4>Dual Voting Access</h4>
+            <p>Cast your vote seamlessly using official CHARUSAT Google Single-Sign-On or enter a secure 6-digit election code.</p>
+          </div>
+        </div>
+
+        <div class="egov-feature-card">
+          <div class="egov-feature-icon-box" style="background:#F3E8FF; color:#9333EA;">
+            <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
+          <div class="egov-feature-info">
+            <h4>100% Anonymous &amp; Tamper-Proof</h4>
+            <p>Zero link stored between voter identity and selected ballots. Cryptographic receipt hashes ensure voter privacy &amp; secrecy.</p>
+          </div>
+        </div>
+
+        <div class="egov-feature-card">
+          <div class="egov-feature-icon-box" style="background:#FEF3C7; color:#D97706;">
+            <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 4-4H5a4 4 0 0 4-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 4-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <div class="egov-feature-info">
+            <h4>Targeted Eligibility Scoping</h4>
+            <p>Restrict voting access to specific CHARUSAT Institutes (CSPIT, DEPSTAR, CMPICA, etc.), Departments, or Academic Batches.</p>
+          </div>
+        </div>
+
+        <div class="egov-feature-card">
+          <div class="egov-feature-icon-box" style="background:#CCFBF1; color:#0D9488;">
+            <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+          </div>
+          <div class="egov-feature-info">
+            <h4>Real-Time Turnout &amp; Live Results</h4>
+            <p>Monitor live voter turnout, view candidate leaderboards, and audit public voting logs instantly upon poll completion.</p>
+          </div>
+        </div>
+
+        <div class="egov-feature-card">
+          <div class="egov-feature-icon-box" style="background:#FFE4E6; color:#E11D48;">
+            <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+          </div>
+          <div class="egov-feature-info">
+            <h4>Step-Up Security &amp; NOTA Option</h4>
+            <p>Step-up authentication for host administrative actions, single &amp; multi-choice ballots, and NOTA (None Of The Above) support.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="egov-features-footer">
+      <button type="button" class="egov-btn-primary" style="width:auto; min-width:130px;" onclick="closeFeaturesModal()">
+        Got it!
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- Bottom Black Copyright Footer -->
 <footer class="egov-fixed-footer">
   &copy; 2026 Charotar University of Science & Technology. All Rights Reserved.
 </footer>
+
+{% block scripts %}
+<script>
+  function openFeaturesModal() {
+    const backdrop = document.getElementById('featuresModalBackdrop');
+    if (backdrop) {
+      backdrop.classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+  }
+  function closeFeaturesModal() {
+    const backdrop = document.getElementById('featuresModalBackdrop');
+    if (backdrop) {
+      backdrop.classList.remove('active');
+      document.body.style.overflow = '';
+    }
+  }
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      closeFeaturesModal();
+    }
+  });
+</script>
 {% endblock %}
+{% endblock %}
+

@@ -851,14 +851,15 @@ table.audit-table tbody tr:hover td {
 
 .egov-card-header {
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
+  gap: 8px;
 }
 
 .egov-brand-logo {
-  max-width: 240px;
-  width: 100%;
+  max-width: 220px;
+  width: auto;
   height: auto;
   object-fit: contain;
   display: block;
@@ -1079,6 +1080,217 @@ input.egov-input-field {
   letter-spacing: 0.01em;
 }
 
+/* Become Host Button & Subtext on Login Card */
+.egov-btn-host {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #4F46E5 0%, #3730A3 100%);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 4px;
+  padding: 11px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 6px rgba(79, 70, 229, 0.25);
+  text-decoration: none;
+  box-sizing: border-box;
+}
+.egov-btn-host:hover {
+  background: linear-gradient(135deg, #4338CA 0%, #312E81 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(79, 70, 229, 0.35);
+  color: #FFFFFF;
+}
+
+.egov-host-subtext {
+  text-align: center;
+  font-size: 11.5px;
+  color: #64748B;
+  margin: 8px 0 0;
+  line-height: 1.4;
+}
+
+/* Features Trigger Button on Card Header */
+.egov-features-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #F1F5F9;
+  color: #334155;
+  border: 1px solid #CBD5E1;
+  padding: 5px 11px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.egov-features-btn:hover {
+  background: #E2E8F0;
+  border-color: #94A3B8;
+  color: #1E293B;
+  transform: scale(1.03);
+}
+.egov-features-btn svg {
+  color: #F59E0B;
+}
+
+/* Features Modal Backdrop & Container */
+.egov-features-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s ease, visibility 0.25s ease;
+}
+.egov-features-modal-backdrop.active {
+  opacity: 1;
+  visibility: visible;
+}
+.egov-features-modal {
+  background: #FFFFFF;
+  border-radius: 10px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+  width: 100%;
+  max-width: 680px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform: translateY(12px) scale(0.98);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.egov-features-modal-backdrop.active .egov-features-modal {
+  transform: translateY(0) scale(1);
+}
+
+.egov-features-header {
+  padding: 18px 24px;
+  background: #163A6B;
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.egov-features-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.egov-features-logo-badge {
+  background: #FFFFFF;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+}
+.egov-features-logo-badge img {
+  height: 24px;
+  width: auto;
+}
+.egov-features-modal-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #FFFFFF;
+  margin: 0;
+  line-height: 1.2;
+}
+.egov-features-modal-subtitle {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.75);
+  margin: 2px 0 0;
+}
+.egov-features-close {
+  background: transparent;
+  border: none;
+  color: #FFFFFF;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+  opacity: 0.8;
+  border-radius: 4px;
+  transition: opacity 0.15s, background 0.15s;
+}
+.egov-features-close:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.egov-features-body {
+  padding: 20px 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+.egov-feature-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+.egov-feature-card {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.egov-feature-card:hover {
+  border-color: #CBD5E1;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+.egov-feature-icon-box {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.egov-feature-info {
+  flex: 1;
+}
+.egov-feature-info h4 {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #0F172A;
+  margin: 0 0 4px;
+}
+.egov-feature-info p {
+  font-size: 11.5px;
+  color: #64748B;
+  margin: 0;
+  line-height: 1.45;
+}
+
+.egov-features-footer {
+  padding: 12px 24px;
+  background: #F1F5F9;
+  border-top: 1px solid #E2E8F0;
+  display: flex;
+  justify-content: flex-end;
+}
+
 /* Responsive Rules */
 @media (max-width: 960px) {
   .egov-excellence-panel {
@@ -1095,7 +1307,23 @@ input.egov-input-field {
   .egov-social-sidebar {
     display: none;
   }
+  .egov-feature-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .egov-features-modal {
+    max-height: 90vh !important;
+  }
+  .egov-features-header {
+    padding: 14px 16px !important;
+  }
+  .egov-features-body {
+    padding: 16px !important;
+  }
+  .egov-features-footer {
+    padding: 10px 16px !important;
+  }
 }
+
 
 /* ============================================================
    DASHBOARD / PHASE 4 STYLES
