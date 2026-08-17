@@ -68,18 +68,24 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 # ---------------------------------------------------------------------------
 oauth = None
 if OAUTH_CONFIGURED:
-    from authlib.integrations.flask_client import OAuth
-    oauth = OAuth(app)
-    oauth.register(
-        name="google",
-        client_id=GOOGLE_CLIENT_ID,
-        client_secret=GOOGLE_CLIENT_SECRET,
-        server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
-        client_kwargs={
-            "scope": "openid email profile",
-            "prompt": "select_account",
-        },
-    )
+    try:
+        from authlib.integrations.flask_client import OAuth
+        oauth = OAuth(app)
+        oauth.register(
+            name="google",
+            client_id=GOOGLE_CLIENT_ID,
+            client_secret=GOOGLE_CLIENT_SECRET,
+            server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+            client_kwargs={
+                "scope": "openid email profile",
+                "prompt": "select_account",
+            },
+        )
+    except Exception as e:
+        print(f"Warning: OAuth initialization failed ({e}). Dev mode available.")
+        oauth = None
+
+from datetime import datetime
 
 # ---------------------------------------------------------------------------
 # Database helpers
@@ -87,15 +93,124 @@ if OAUTH_CONFIGURED:
 def get_db():
     if "db" not in g:
         g.db = get_db_connection()
-        # Ensure max_choices column exists in voting_systems
+        # Ensure Phase 3+ columns exist in voting_systems
         try:
             cols = [r["name"] for r in g.db.execute("PRAGMA table_info(voting_systems)").fetchall()]
-            if cols and "max_choices" not in cols:
-                g.db.execute("ALTER TABLE voting_systems ADD COLUMN max_choices INTEGER NOT NULL DEFAULT 1")
+            if cols:
+                if "max_choices" not in cols:
+                    g.db.execute("ALTER TABLE voting_systems ADD COLUMN max_choices INTEGER NOT NULL DEFAULT 1")
+                if "allow_live_results" not in cols:
+                    g.db.execute("ALTER TABLE voting_systems ADD COLUMN allow_live_results INTEGER NOT NULL DEFAULT 0")
+                if "deadline" not in cols:
+                    g.db.execute("ALTER TABLE voting_systems ADD COLUMN deadline TEXT")
+                if "is_deleted" not in cols:
+                    g.db.execute("ALTER TABLE voting_systems ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0")
                 g.db.commit()
         except Exception:
             pass
     return g.db
+
+
+def parse_deadline(deadline_str):
+    """Parse a deadline string to a datetime object."""
+    if not deadline_str or not str(deadline_str).strip():
+        return None
+    s = str(deadline_str).strip()
+    formats = [
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%dT%H:%M",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d %H:%M",
+        "%Y-%m-%d",
+    ]
+    for fmt in formats:
+        try:
+            return datetime.strptime(s, fmt)
+        except ValueError:
+            continue
+    try:
+        return datetime.fromisoformat(s.replace("Z", "+00:00")).replace(tzinfo=None)
+    except Exception:
+        return None
+
+
+def get_deadline_info(deadline_str):
+    """
+    Returns structured deadline metadata for templates and business logic.
+    """
+    dt = parse_deadline(deadline_str)
+    if not dt:
+        return {
+            "has_deadline": False,
+            "raw": "",
+            "dt": None,
+            "is_passed": False,
+            "formatted": "No deadline (Open indefinitely)",
+            "time_left_str": "",
+            "seconds_remaining": None,
+            "badge_class": "badge-neutral",
+        }
+
+    now = datetime.now()
+    diff = (dt - now).total_seconds()
+    is_passed = diff <= 0
+
+    formatted = dt.strftime("%d %b %Y, %I:%M %p")
+
+    if is_passed:
+        abs_diff = abs(diff)
+        if abs_diff < 3600:
+            passed_text = f"{max(1, int(abs_diff // 60))}m ago"
+        elif abs_diff < 86400:
+            passed_text = f"{int(abs_diff // 3600)}h ago"
+        else:
+            passed_text = f"{int(abs_diff // 86400)}d ago"
+        time_left_str = f"Closed ({passed_text})"
+        badge_class = "badge-expired"
+    else:
+        if diff < 60:
+            time_left_str = "Closes in under 1 min"
+            badge_class = "badge-urgent"
+        elif diff < 3600:
+            mins = int(diff // 60)
+            time_left_str = f"Closes in {mins}m"
+            badge_class = "badge-urgent"
+        elif diff < 86400:
+            hrs = int(diff // 3600)
+            rem_mins = int((diff % 3600) // 60)
+            time_left_str = f"Closes in {hrs}h {rem_mins}m" if rem_mins else f"Closes in {hrs}h"
+            badge_class = "badge-soon"
+        else:
+            days = int(diff // 86400)
+            rem_hrs = int((diff % 86400) // 3600)
+            time_left_str = f"Closes in {days}d {rem_hrs}h" if rem_hrs else f"Closes in {days}d"
+            badge_class = "badge-open"
+
+    return {
+        "has_deadline": True,
+        "raw": str(deadline_str),
+        "dt": dt,
+        "is_passed": is_passed,
+        "formatted": formatted,
+        "time_left_str": time_left_str,
+        "seconds_remaining": diff,
+        "badge_class": badge_class,
+    }
+
+
+def is_system_active_for_voting(vs):
+    """Check if a voting system is currently active for casting votes."""
+    if not vs:
+        return False
+    if "is_deleted" in vs.keys() and vs["is_deleted"]:
+        return False
+    if not vs["is_open"]:
+        return False
+    if "deadline" in vs.keys() and vs["deadline"]:
+        d_info = get_deadline_info(vs["deadline"])
+        if d_info["is_passed"]:
+            return False
+    return True
 
 
 @app.teardown_appcontext
@@ -390,16 +505,16 @@ def home():
 @app.route("/dashboard")
 @voter_login_required
 def voter_dashboard():
-    """Show voting systems the signed-in voter is eligible for."""
+    """Show voting systems the signed-in voter is eligible for, ranked by urgency and activity."""
     db = get_db()
     voter_id = session["voter_id"]
     voter_institute = session.get("voter_institute")
     voter_department = session.get("voter_department")
     voter_name = session.get("voter_name", voter_id)
 
-    # Find all open voting systems
+    # Find all non-deleted voting systems
     all_systems = db.execute(
-        "SELECT * FROM voting_systems WHERE is_open = 1 ORDER BY created_at DESC"
+        "SELECT * FROM voting_systems WHERE is_deleted = 0 ORDER BY created_at DESC"
     ).fetchall()
 
     # Filter to ones this voter is eligible for based on verified OAuth attributes
@@ -407,6 +522,14 @@ def voter_dashboard():
     for vs in all_systems:
         if voter_is_eligible(db, voter_id, vs, voter_institute, voter_department):
             already_voted = has_voted_in_system(db, voter_id, vs["id"])
+            turnout = db.execute(
+                "SELECT COUNT(*) as n FROM turnout_log WHERE voting_system_id = ?",
+                (vs["id"],)
+            ).fetchone()["n"]
+
+            d_info = get_deadline_info(vs["deadline"] if "deadline" in vs.keys() else None)
+            is_active = bool(vs["is_open"] and not d_info["is_passed"])
+
             eligible_systems.append({
                 "id": vs["id"],
                 "name": vs["name"],
@@ -414,8 +537,34 @@ def voter_dashboard():
                 "scope_type": vs["scope_type"],
                 "scope_institute": vs["scope_institute"],
                 "scope_department": vs["scope_department"],
+                "is_open": vs["is_open"],
                 "already_voted": already_voted,
+                "turnout": turnout,
+                "deadline_info": d_info,
+                "is_active": is_active,
             })
+
+    # Ranking logic:
+    # Priority Tier 0: Unvoted & Active (open + deadline not passed)
+    #   Rank by combination of closest deadline urgency and highest turnout
+    # Priority Tier 1: Already voted (active or closed)
+    # Priority Tier 2: Closed or deadline passed (unvoted)
+    def sort_key(s):
+        if s["is_active"] and not s["already_voted"]:
+            tier = 0
+            if s["deadline_info"]["has_deadline"] and s["deadline_info"]["seconds_remaining"] is not None:
+                sec_left = max(0, s["deadline_info"]["seconds_remaining"])
+            else:
+                sec_left = 10**9  # No deadline -> placed after urgent deadlines
+            return (tier, sec_left, -s["turnout"], -s["id"])
+        elif s["already_voted"]:
+            tier = 1
+            return (tier, -s["turnout"], -s["id"])
+        else:
+            tier = 2
+            return (tier, -s["turnout"], -s["id"])
+
+    eligible_systems.sort(key=sort_key)
 
     voter_record = db.execute("SELECT * FROM voters WHERE voter_id = ?", (voter_id,)).fetchone()
 
@@ -440,6 +589,10 @@ def join_by_code():
     vs = db.execute("SELECT * FROM voting_systems WHERE code = ?", (code,)).fetchone()
     if not vs:
         flash("No voting system found with that code.", "error")
+        return redirect(url_for("voter_dashboard") if "voter_id" in session else url_for("home"))
+
+    if "is_deleted" in vs.keys() and vs["is_deleted"] == 1:
+        flash("This voting system has been deleted by the election administrator.", "error")
         return redirect(url_for("voter_dashboard") if "voter_id" in session else url_for("home"))
 
     return redirect(url_for("vote_page", code=code))
@@ -605,7 +758,7 @@ def admin_my_systems():
         """SELECT vs.*, COUNT(c.id) as candidate_count
            FROM voting_systems vs
            LEFT JOIN candidates c ON c.voting_system_id = vs.id AND c.is_active = 1
-           WHERE vs.admin_id = ?
+           WHERE vs.admin_id = ? AND vs.is_deleted = 0
            GROUP BY vs.id
            ORDER BY vs.created_at DESC""",
         (session["admin_id"],)
@@ -621,10 +774,13 @@ def admin_my_systems():
         eligible = get_eligible_voter_count(
             db, vs["scope_type"], vs["scope_institute"], vs["scope_department"]
         )
+        d_info = get_deadline_info(vs["deadline"] if "deadline" in vs.keys() else None)
         system_data.append({
             **dict(vs),
             "turnout": turnout,
             "eligible": eligible,
+            "deadline_info": d_info,
+            "is_active": bool(vs["is_open"] and not d_info["is_passed"]),
         })
 
     return render_template("admin_my_systems.html", systems=system_data)
@@ -644,6 +800,7 @@ def admin_create_system():
         scope_type = request.form.get("scope_type", "")
         scope_institute = request.form.get("scope_institute", "").strip() or None
         scope_department = request.form.get("scope_department", "").strip() or None
+        deadline = request.form.get("deadline", "").strip() or None
 
         try:
             max_choices = int(request.form.get("max_choices", 1))
@@ -673,15 +830,16 @@ def admin_create_system():
                 scope_institute=scope_institute,
                 scope_department=scope_department,
                 max_choices=max_choices,
+                deadline=deadline or "",
             )
 
         allow_live_results = 1 if request.form.get("allow_live_results") else 0
         code = generate_system_code()
         db.execute(
             """INSERT INTO voting_systems
-               (name, scope_type, scope_institute, scope_department, code, admin_id, max_choices, allow_live_results)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-            (name, scope_type, scope_institute, scope_department, code, session["admin_id"], max_choices, allow_live_results),
+               (name, scope_type, scope_institute, scope_department, code, admin_id, max_choices, allow_live_results, deadline, is_deleted)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)""",
+            (name, scope_type, scope_institute, scope_department, code, session["admin_id"], max_choices, allow_live_results, deadline),
         )
         db.commit()
 
@@ -692,7 +850,7 @@ def admin_create_system():
         "admin_create_system.html",
         all_institutes=ALL_INSTITUTES,
         available_institutes=available_institutes,
-        name="", scope_type="", scope_institute="", scope_department="",
+        name="", scope_type="", scope_institute="", scope_department="", deadline="",
     )
 
 
@@ -702,7 +860,7 @@ def admin_system_dashboard(code):
     """Per-voting-system admin dashboard."""
     db = get_db()
     vs = db.execute("SELECT * FROM voting_systems WHERE code = ?", (code,)).fetchone()
-    if not vs or vs["admin_id"] != session["admin_id"]:
+    if not vs or vs["admin_id"] != session["admin_id"] or ("is_deleted" in vs.keys() and vs["is_deleted"] == 1):
         abort(404)
 
     if request.method == "POST":
@@ -747,6 +905,19 @@ def admin_system_dashboard(code):
             db.commit()
             flash(f"Public Live Results are now {'ENABLED' if new_state else 'DISABLED'}.", "success")
 
+        elif action == "update_deadline":
+            new_deadline = request.form.get("deadline", "").strip() or None
+            db.execute(
+                "UPDATE voting_systems SET deadline = ? WHERE id = ?",
+                (new_deadline, vs["id"]),
+            )
+            db.commit()
+            if new_deadline:
+                d_info = get_deadline_info(new_deadline)
+                flash(f"Deadline updated to {d_info['formatted']}.", "success")
+            else:
+                flash("Deadline removed (election open indefinitely until manually closed).", "success")
+
         return redirect(url_for("admin_system_dashboard", code=code))
 
     candidates = db.execute(
@@ -763,14 +934,31 @@ def admin_system_dashboard(code):
         db, vs["scope_type"], vs["scope_institute"], vs["scope_department"]
     )
 
+    d_info = get_deadline_info(vs["deadline"] if "deadline" in vs.keys() else None)
     share_link = request.url_root.rstrip("/") + url_for("vote_page", code=code)
 
     return render_template(
         "admin_system_dashboard.html",
         vs=vs, candidates=candidates,
         turnout=turnout, eligible=eligible,
+        deadline_info=d_info,
         share_link=share_link,
     )
+
+
+@app.route("/admin/system/<code>/delete", methods=["POST"])
+@admin_login_required
+def admin_delete_system(code):
+    """Soft-delete a voting system."""
+    db = get_db()
+    vs = db.execute("SELECT * FROM voting_systems WHERE code = ?", (code,)).fetchone()
+    if not vs or vs["admin_id"] != session["admin_id"] or ("is_deleted" in vs.keys() and vs["is_deleted"] == 1):
+        abort(404)
+
+    db.execute("UPDATE voting_systems SET is_deleted = 1, is_open = 0 WHERE id = ?", (vs["id"],))
+    db.commit()
+    flash(f"Voting system '{vs['name']}' ({code}) has been deleted.", "success")
+    return redirect(url_for("admin_my_systems"))
 
 
 @app.route("/admin/system/<code>/audit", methods=["GET", "POST"])
@@ -779,7 +967,7 @@ def admin_audit(code):
     """Turnout audit (requires step-up password re-entry on each access)."""
     db = get_db()
     vs = db.execute("SELECT * FROM voting_systems WHERE code = ?", (code,)).fetchone()
-    if not vs or vs["admin_id"] != session["admin_id"]:
+    if not vs or vs["admin_id"] != session["admin_id"] or ("is_deleted" in vs.keys() and vs["is_deleted"] == 1):
         abort(404)
 
     # Step-up auth: require password re-entry on each access
@@ -830,6 +1018,10 @@ def vote_page(code):
     if not vs:
         abort(404)
 
+    # Gentle error handling if the system has been deleted
+    if "is_deleted" in vs.keys() and vs["is_deleted"] == 1:
+        return render_template("election_deleted.html", vs=vs, code=code), 410
+
     # Must be signed in
     if "voter_id" not in session:
         session["next_url"] = request.url
@@ -846,6 +1038,11 @@ def vote_page(code):
     if not voter_is_eligible(db, voter_id, vs, voter_institute, voter_department):
         flash("This election isn't open to your institute/department.", "error")
         return redirect(url_for("voter_dashboard"))
+
+    d_info = get_deadline_info(vs["deadline"] if "deadline" in vs.keys() else None)
+    if d_info["is_passed"]:
+        flash(f"Voting has closed because the election deadline ({d_info['formatted']}) has passed.", "error")
+        return redirect(url_for("vote_results", code=code))
 
     # Check if voting is open
     if not vs["is_open"]:
@@ -873,7 +1070,7 @@ def vote_page(code):
 
         if not choices:
             flash("Please make a selection before submitting.", "error")
-            return render_template("vote.html", vs=vs, voter=voter_view, candidates=candidates)
+            return render_template("vote.html", vs=vs, voter=voter_view, candidates=candidates, deadline_info=d_info)
 
         if "NOTA" in choices:
             # NOTA selected -> 1 NOTA vote cast
@@ -881,7 +1078,7 @@ def vote_page(code):
         else:
             if len(choices) > max_allowed:
                 flash(f"You can select at most {max_allowed} choice(s).", "error")
-                return render_template("vote.html", vs=vs, voter=voter_view, candidates=candidates)
+                return render_template("vote.html", vs=vs, voter=voter_view, candidates=candidates, deadline_info=d_info)
 
             vote_entries = []
             for cid in choices:
@@ -891,7 +1088,7 @@ def vote_page(code):
                 ).fetchone()
                 if not cand:
                     flash("Invalid candidate selection.", "error")
-                    return render_template("vote.html", vs=vs, voter=voter_view, candidates=candidates)
+                    return render_template("vote.html", vs=vs, voter=voter_view, candidates=candidates, deadline_info=d_info)
                 vote_entries.append((cand["id"], 0))
 
         # Atomic: record vote entries + 1 turnout log entry
@@ -910,11 +1107,11 @@ def vote_page(code):
         except Exception:
             db.rollback()
             flash("Something went wrong recording your vote. Please try again.", "error")
-            return render_template("vote.html", vs=vs, voter=voter_view, candidates=candidates)
+            return render_template("vote.html", vs=vs, voter=voter_view, candidates=candidates, deadline_info=d_info)
 
         return redirect(url_for("vote_thank_you", code=code))
 
-    return render_template("vote.html", vs=vs, voter=voter_view, candidates=candidates)
+    return render_template("vote.html", vs=vs, voter=voter_view, candidates=candidates, deadline_info=d_info)
 
 
 @app.route("/vote/<code>/thank-you")
@@ -924,6 +1121,8 @@ def vote_thank_you(code):
     vs = db.execute("SELECT * FROM voting_systems WHERE code = ?", (code,)).fetchone()
     if not vs:
         abort(404)
+    if "is_deleted" in vs.keys() and vs["is_deleted"] == 1:
+        return render_template("election_deleted.html", vs=vs, code=code), 410
     return render_template("thank_you.html", vs=vs)
 
 
@@ -935,12 +1134,20 @@ def vote_results(code):
     if not vs:
         abort(404)
 
+    # Gentle error handling if system was deleted
+    if "is_deleted" in vs.keys() and vs["is_deleted"] == 1:
+        return render_template("election_deleted.html", vs=vs, code=code), 410
+
+    d_info = get_deadline_info(vs["deadline"] if "deadline" in vs.keys() else None)
+
     # Results Visibility Rule:
-    # Visible if voting is closed OR if admin enabled allow_live_results.
+    # Visible if voting is closed (or deadline passed) OR if admin enabled allow_live_results.
     # The owning admin can always view live results anytime.
     allow_live = vs["allow_live_results"] if "allow_live_results" in vs.keys() else 0
     is_owner = (session.get("admin_id") == vs["admin_id"])
-    if vs["is_open"] and not is_owner and not allow_live:
+    is_open_and_active = vs["is_open"] and not d_info["is_passed"]
+
+    if is_open_and_active and not is_owner and not allow_live:
         flash("Results are hidden while voting is open. Please check back after voting closes.", "error")
         if "voter_id" in session:
             return redirect(url_for("voter_dashboard"))
@@ -977,6 +1184,7 @@ def vote_results(code):
         nota_count=nota_count,
         eligible=eligible,
         turnout=turnout,
+        deadline_info=d_info,
     )
 
 

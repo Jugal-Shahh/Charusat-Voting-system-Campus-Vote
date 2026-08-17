@@ -12,10 +12,15 @@
   <div class="results-header">
     <div class="results-header-left">
       <div class="eyebrow-label" style="margin-bottom:6px;">
-        {% if vs.is_open %}
+        {% if vs.is_open and deadline_info and not deadline_info.is_passed %}
         <span class="status-pill status-open" style="font-size:10px; padding:2px 8px;"><span class="pulse-dot"></span> LIVE RESULTS</span>
         {% else %}
         <span class="status-pill status-closed" style="font-size:10px; padding:2px 8px;">FINAL RESULTS</span>
+        {% endif %}
+        {% if deadline_info and deadline_info.has_deadline %}
+        <span style="font-size:11px; margin-left:8px; color:var(--text-muted); font-weight:normal;">
+          Deadline: {{ deadline_info.formatted }}
+        </span>
         {% endif %}
       </div>
       <h1 class="form-title" style="margin-bottom:4px;">{{ vs.name }}</h1>

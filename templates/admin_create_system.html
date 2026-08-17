@@ -19,6 +19,15 @@
              style="margin-bottom:20px; max-width:200px;">
       <p class="form-sub" style="font-size:11px; margin-top:-14px; margin-bottom:20px;">Set how many candidates a voter can select on their ballot (Default: 1).</p>
 
+      <div style="margin-bottom:24px;">
+        <label for="deadline">Voting Deadline & Closing Time (Optional)</label>
+        <input type="datetime-local" id="deadline" name="deadline" value="{{ deadline or '' }}"
+               style="max-width:320px; margin-bottom:4px;">
+        <p class="form-sub" style="font-size:11px; margin-top:0; margin-bottom:0; color:var(--text-muted);">
+          Set an exact date & time when voting closes automatically. Leave empty if you prefer manual closing.
+        </p>
+      </div>
+
       <fieldset class="ballot-group" style="padding-top:12px;">
         <legend>Voter Scope (Who is eligible to vote?)</legend>
 

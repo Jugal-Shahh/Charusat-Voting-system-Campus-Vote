@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Election Unavailable — CharusatVote{% endblock %}
+{% block page_title %}Notice{% endblock %}
+{% block content %}
+<div class="card" style="max-width:560px; text-align:center; padding:36px 32px; margin:40px auto;">
+  <div style="width:68px; height:68px; border-radius:50%; background:#FEF2F2; color:#DC2626; display:inline-flex; align-items:center; justify-content:center; font-size:30px; margin-bottom:20px; border:1px solid #FEE2E2;">
+    🗳️
+  </div>
+
+  <h1 class="form-title" style="font-size:22px; margin-bottom:10px; color:var(--text-dark);">
+    Voting System Deleted
+  </h1>
+
+  <p style="color:var(--text-muted); font-size:14px; line-height:1.6; margin-bottom:20px;">
+    {% if vs and vs.name %}
+      The voting election <strong>"{{ vs.name }}"</strong> (<code>{{ code }}</code>) has been removed or deleted by the administrator.
+    {% else %}
+      The voting system with code <code>{{ code }}</code> has been removed or deleted by the administrator.
+    {% endif %}
+  </p>
+
+  <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:var(--radius); padding:14px 18px; margin-bottom:28px; font-size:13px; color:#475569; text-align:left; line-height:1.5;">
+    <div style="font-weight:600; margin-bottom:4px; color:var(--text-dark);">ℹ️ What this means:</div>
+    <ul style="margin:0; padding-left:18px;">
+      <li>Ballots and results for this election are no longer active.</li>
+      <li>If you need to participate in another election, you can browse available elections on your dashboard.</li>
+      <li>Contact your election organizer if you have any questions.</li>
+    </ul>
+  </div>
+
+  <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+    {% if voter_signed_in %}
+      <a href="{{ url_for('voter_dashboard') }}" class="btn small" style="width:auto; margin:0; padding:10px 22px;">
+        Go to Voter Dashboard
+      </a>
+    {% endif %}
+    <a href="{{ url_for('home') }}" class="btn small secondary" style="width:auto; margin:0; padding:10px 22px;">
+      Return Home
+    </a>
+  </div>
+</div>
+{% endblock %}

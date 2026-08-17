@@ -16,10 +16,17 @@
     </div>
 
     <h1 class="form-title">{{ vs.name }}</h1>
-    <p class="form-sub">
+    <p class="form-sub" style="margin-bottom:12px;">
       Logged in as <strong>{{ voter_name }}</strong> (<code style="background:var(--input-bg); padding:2px 6px; border-radius:3px;">{{ voter.voter_id }}</code>).<br>
-      Choose one candidate or select NOTA. Your vote is anonymous once submitted.
+      Choose your candidate(s) or select NOTA. Your vote is completely anonymous once submitted.
     </p>
+
+    {% if deadline_info and deadline_info.has_deadline %}
+    <div style="margin-bottom:18px; padding:8px 14px; background:#EFF6FF; border:1px solid #BFDBFE; border-radius:var(--radius); font-size:12px; color:#1E40AF; display:flex; align-items:center; gap:8px;">
+      <span>⏳</span>
+      <span><strong>Deadline:</strong> {{ deadline_info.formatted }} ({{ deadline_info.time_left_str }})</span>
+    </div>
+    {% endif %}
 
     <form method="POST">
       <fieldset class="ballot-group">

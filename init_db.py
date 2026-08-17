@@ -50,8 +50,12 @@ def _backup_db():
     """Create a timestamped backup of the existing database."""
     db_url = os.environ.get("DATABASE_URL")
     if db_url and ("postgres://" in db_url or "postgresql://" in db_url) and "paste-your-real" not in db_url:
-        print("  [info] Remote Postgres database detected; skipping local file backup.")
-        return None
+        try:
+            import psycopg2
+            print("  [info] Remote Postgres database detected; skipping local file backup.")
+            return None
+        except ImportError:
+            pass
     if DB_PATH.exists():
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup = DB_PATH.with_name(f"campus_vote_backup_{ts}.db")
@@ -141,6 +145,29 @@ def _ensure_patterns_table_migrated(conn):
             conn.commit()
 
 
+def _ensure_voting_system_columns(conn):
+    """Add Phase 3+ columns to voting_systems if missing."""
+    if not _table_exists(conn, "voting_systems"):
+        return
+    existing = {row[1] for row in conn.execute("PRAGMA table_info(voting_systems)")}
+    new_cols = [
+        ("max_choices",        "INTEGER NOT NULL DEFAULT 1"),
+        ("allow_live_results", "INTEGER NOT NULL DEFAULT 0"),
+        ("deadline",           "TEXT"),
+        ("is_deleted",         "INTEGER NOT NULL DEFAULT 0"),
+    ]
+    migrated = []
+    for col, typedef in new_cols:
+        if col not in existing:
+            conn.execute(f"ALTER TABLE voting_systems ADD COLUMN {col} {typedef}")
+            migrated.append(col)
+    if migrated:
+        conn.commit()
+        print(f"  [ok] Added columns to voting_systems: {', '.join(migrated)}")
+    else:
+        print("  [ok] Voting systems columns already up-to-date.")
+
+
 def main():
     print(f"\n{'='*55}")
     print(f"  CharusatVote -- Database Init / Migration")
@@ -170,6 +197,9 @@ def main():
 
         # Ensure voter columns from Phase 1
         _ensure_voter_columns(conn)
+
+        # Ensure voting_systems columns
+        _ensure_voting_system_columns(conn)
 
         # Seed default admin
         _seed_default_admin(conn)

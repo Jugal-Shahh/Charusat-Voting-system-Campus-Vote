@@ -187,15 +187,19 @@ def get_db_connection(db_path=None):
         db_url = None
 
     if db_url and (db_url.startswith("postgres://") or db_url.startswith("postgresql://")):
-        import psycopg2
-        import psycopg2.extras
-        if db_url.startswith("postgres://"):
-            db_url = db_url.replace("postgres://", "postgresql://", 1)
-        conn = psycopg2.connect(db_url)
-        return PostgresConnectionWrapper(conn)
-    else:
-        path = db_path if db_path else str(DB_PATH)
-        conn = sqlite3.connect(path)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA foreign_keys = ON")
-        return conn
+        try:
+            import psycopg2
+            import psycopg2.extras
+            if db_url.startswith("postgres://"):
+                db_url = db_url.replace("postgres://", "postgresql://", 1)
+            conn = psycopg2.connect(db_url)
+            return PostgresConnectionWrapper(conn)
+        except (ImportError, Exception) as e:
+            print(f"  [info] Postgres connection unavailable ({e}). Using local SQLite database.")
+            pass
+
+    path = db_path if db_path else str(DB_PATH)
+    conn = sqlite3.connect(path)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn

@@ -18,6 +18,13 @@ class TestGracefulErrors(unittest.TestCase):
         self.app.config["TESTING"] = True
         self.app.config["SECRET_KEY"] = "test-graceful-key"
         self.client = self.app.test_client()
+        import app as app_mod
+        self.orig_oauth = app_mod.OAUTH_CONFIGURED
+        app_mod.OAUTH_CONFIGURED = False
+
+    def tearDown(self):
+        import app as app_mod
+        app_mod.OAUTH_CONFIGURED = self.orig_oauth
 
     def test_case_1_non_charusat_email_rejection(self):
         """Case 1: Sign in with non-CHARUSAT email (e.g. @gmail.com) -> clean rejection, no crash."""

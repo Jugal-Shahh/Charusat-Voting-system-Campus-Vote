@@ -104,6 +104,8 @@ CREATE TABLE IF NOT EXISTS voting_systems (
     is_open          INTEGER NOT NULL DEFAULT 0,
     max_choices      INTEGER NOT NULL DEFAULT 1,
     allow_live_results INTEGER NOT NULL DEFAULT 0,
+    deadline         TEXT,                -- ISO string or YYYY-MM-DDTHH:MM
+    is_deleted       INTEGER NOT NULL DEFAULT 0,
     created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (admin_id) REFERENCES admins(id)
 );

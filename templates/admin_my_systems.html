@@ -52,9 +52,13 @@
 
       <!-- Status ribbon -->
       <div class="election-status-bar">
-        {% if sys.is_open %}
+        {% if sys.is_active %}
         <span class="status-pill status-open">
           <span class="pulse-dot"></span> LIVE
+        </span>
+        {% elif sys.deadline_info.is_passed %}
+        <span class="status-pill" style="background:#FEF2F2; color:#DC2626; border:1px solid #FECACA;">
+          EXPIRED
         </span>
         {% else %}
         <span class="status-pill status-closed">CLOSED</span>
@@ -72,6 +76,12 @@
           {% elif sys.scope_type == 'department' %}{{ sys.scope_institute }} · {{ sys.scope_department }}
           {% endif %}
         </div>
+        {% if sys.deadline_info.has_deadline %}
+        <div style="font-size:11px; margin-top:6px; display:inline-flex; align-items:center; gap:5px; padding:3px 8px; border-radius:4px; font-weight:500; {% if sys.deadline_info.is_passed %}background:#FEF2F2; color:#991B1B; border:1px solid #FEE2E2;{% elif sys.deadline_info.seconds_remaining < 86400 %}background:#FFFBEB; color:#92400E; border:1px solid #FEF3C7;{% else %}background:#F1F5F9; color:#475569; border:1px solid #E2E8F0;{% endif %}">
+          <span>⏳</span>
+          <span>{{ sys.deadline_info.time_left_str }} ({{ sys.deadline_info.formatted }})</span>
+        </div>
+        {% endif %}
       </div>
 
       <!-- Turnout progress -->
@@ -101,8 +111,8 @@
           <span class="efooter-num">{{ sys.turnout }}</span>
           <span class="efooter-lbl">Votes Cast</span>
         </div>
-        <div class="efooter-action">
-          Manage →
+        <div class="efooter-action" style="display:flex; align-items:center; gap:10px;">
+          <span>Manage →</span>
         </div>
       </div>
     </div>

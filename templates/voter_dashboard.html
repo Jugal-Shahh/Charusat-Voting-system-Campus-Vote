@@ -26,40 +26,70 @@
       </div>
     {% endif %}
 
-    <h2 class="section-title">🗳️ Open Elections You Can Vote In</h2>
+    <h2 class="section-title">🗳️ Elections for Your Profile</h2>
 
     {% if eligible_systems %}
       <div class="system-grid">
         {% for sys in eligible_systems %}
-        <div class="system-card">
-          <div class="system-card-header">
-            <h3 class="system-name">{{ sys.name }}</h3>
-            <span class="badge open">OPEN</span>
-          </div>
-          <div class="system-meta">
-            <span class="scope-tag">
-              {% if sys.scope_type == 'university' %}University-wide
-              {% elif sys.scope_type == 'institute' %}{{ sys.scope_institute }}
-              {% elif sys.scope_type == 'department' %}{{ sys.scope_institute }} / {{ sys.scope_department }}
+        <div class="system-card {% if sys.is_active and not sys.already_voted %}system-card--active{% endif %}" style="display:flex; flex-direction:column; justify-content:space-between;">
+          <div>
+            <div class="system-card-header">
+              <h3 class="system-name" style="margin-bottom:0;">{{ sys.name }}</h3>
+              {% if sys.already_voted %}
+                <span class="badge" style="background:#ECFDF5; color:#065F46; border:1px solid #A7F3D0;">VOTED</span>
+              {% elif sys.is_active %}
+                <span class="badge open">OPEN</span>
+              {% elif sys.deadline_info.is_passed %}
+                <span class="badge" style="background:#FEF2F2; color:#991B1B; border:1px solid #FEE2E2;">CLOSED</span>
+              {% else %}
+                <span class="badge" style="background:#F1F5F9; color:#475569;">CLOSED</span>
               {% endif %}
-            </span>
-            <span class="code-tag">Code: {{ sys.code }}</span>
+            </div>
+
+            <div class="system-meta" style="margin-top:10px; display:flex; flex-wrap:wrap; gap:6px;">
+              <span class="scope-tag">
+                {% if sys.scope_type == 'university' %}🏛️ University-wide
+                {% elif sys.scope_type == 'institute' %}🏛️ {{ sys.scope_institute }}
+                {% elif sys.scope_type == 'department' %}🏛️ {{ sys.scope_institute }} / {{ sys.scope_department }}
+                {% endif %}
+              </span>
+              <span class="code-tag">Code: {{ sys.code }}</span>
+            </div>
+
+            <!-- Stats & Deadline Bar -->
+            <div style="margin-top:12px; display:flex; flex-wrap:wrap; gap:6px; font-size:12px;">
+              <span style="display:inline-flex; align-items:center; gap:4px; padding:3px 8px; background:#EFF6FF; color:#1E40AF; border-radius:4px; font-weight:600; border:1px solid #DBEAFE;">
+                <span>👥</span> {{ sys.turnout }} voted
+              </span>
+              {% if sys.deadline_info.has_deadline %}
+                <span style="display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:4px; font-weight:600; {% if sys.deadline_info.is_passed %}background:#FEF2F2; color:#991B1B; border:1px solid #FEE2E2;{% elif sys.deadline_info.seconds_remaining < 86400 %}background:#FFFBEB; color:#92400E; border:1px solid #FEF3C7;{% else %}background:#F8FAFC; color:#475569; border:1px solid #E2E8F0;{% endif %}">
+                  <span>⏳</span> {{ sys.deadline_info.time_left_str }}
+                </span>
+              {% endif %}
+            </div>
           </div>
-          {% if sys.already_voted %}
-            <a href="{{ url_for('vote_results', code=sys.code) }}" class="btn small secondary" style="margin-top:12px;">
-              ✅ Already voted &mdash; View results
-            </a>
-          {% else %}
-            <a href="{{ url_for('vote_page', code=sys.code) }}" class="btn small" style="margin-top:12px;">
-              🗳️ Cast your vote
-            </a>
-          {% endif %}
+
+          <div style="margin-top:16px;">
+            {% if sys.already_voted %}
+              <a href="{{ url_for('vote_results', code=sys.code) }}" class="btn small secondary" style="margin:0; width:100%;">
+                ✅ Already voted &mdash; View results
+              </a>
+            {% elif sys.is_active %}
+              <a href="{{ url_for('vote_page', code=sys.code) }}" class="btn small" style="margin:0; width:100%; font-weight:600;">
+                🗳️ Cast your vote
+              </a>
+            {% else %}
+              <a href="{{ url_for('vote_results', code=sys.code) }}" class="btn small secondary" style="margin:0; width:100%;">
+                📊 Voting Closed &mdash; View results
+              </a>
+            {% endif %}
+          </div>
         </div>
         {% endfor %}
       </div>
     {% else %}
       <div class="empty-state">
-        <p>No open elections available for your profile right now.</p>
+        <p>No elections available for your profile right now.</p>
         <p style="font-size:12px; color:var(--text-muted);">If you have a voting code, enter it below.</p>
       </div>
     {% endif %}

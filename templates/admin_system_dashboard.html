@@ -124,6 +124,42 @@
 
   </div><!-- /db-top-row -->
 
+  <!-- ═══════════════════════════════════════════════════
+       DEADLINE & SETTINGS STRIP
+  ══════════════════════════════════════════════════════ -->
+  <div style="background:var(--input-bg); border:1px solid #E2E8F0; border-radius:var(--radius); padding:16px 20px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px;">
+    <div>
+      <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted); margin-bottom:3px;">
+        Voting Deadline & Automatic Closing
+      </div>
+      <div style="font-size:14px; font-weight:600; color:var(--text-dark); display:flex; align-items:center; gap:8px;">
+        <span>⏳</span>
+        {% if deadline_info.has_deadline %}
+          <span>{{ deadline_info.formatted }}</span>
+          <span style="font-size:12px; font-weight:500; padding:2px 8px; border-radius:4px; {% if deadline_info.is_passed %}background:#FEF2F2; color:#991B1B; border:1px solid #FEE2E2;{% else %}background:#ECFDF5; color:#065F46; border:1px solid #A7F3D0;{% endif %}">
+            {{ deadline_info.time_left_str }}
+          </span>
+        {% else %}
+          <span style="color:var(--text-muted); font-weight:normal;">No deadline set (Election stays open indefinitely until manually closed)</span>
+        {% endif %}
+      </div>
+    </div>
+    <form method="POST" style="display:flex; align-items:center; gap:8px; margin:0; flex-wrap:wrap;">
+      <input type="hidden" name="action" value="update_deadline">
+      <input type="datetime-local" name="deadline" value="{{ deadline_info.raw or '' }}"
+             style="padding:6px 10px; font-size:13px; border-radius:var(--radius); border:1px solid #CBD5E1; max-width:230px;">
+      <button type="submit" class="btn small" style="margin:0; width:auto; padding:6px 14px; font-size:12px;">
+        {% if deadline_info.has_deadline %}Update Deadline{% else %}Set Deadline{% endif %}
+      </button>
+      {% if deadline_info.has_deadline %}
+      <button type="button" class="btn small secondary" style="margin:0; width:auto; padding:6px 12px; font-size:12px;"
+              onclick="if(confirm('Clear deadline? Voting will stay open indefinitely until manually toggled.')){ this.form.deadline.value=''; this.form.submit(); }">
+        Clear
+      </button>
+      {% endif %}
+    </form>
+  </div>
+
   <div class="db-section-divider"></div>
 
   <!-- ═══════════════════════════════════════════════════
@@ -185,6 +221,30 @@
         </button>
       </div>
     </form>
+  </div>
+
+  <div class="db-section-divider"></div>
+
+  <!-- ═══════════════════════════════════════════════════
+       DANGER ZONE
+  ══════════════════════════════════════════════════════ -->
+  <div style="background:#FFF5F5; border:1px solid #FED7D7; border-radius:var(--radius); padding:20px 24px; margin-top:30px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+      <div>
+        <div style="font-weight:700; color:#C53030; font-size:15px; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+          <span>⚠️</span> Danger Zone &mdash; Delete Election
+        </div>
+        <p style="font-size:13px; color:#742A2A; margin:0; line-height:1.4;">
+          Deleting this election permanently removes it from voter dashboards. Any future attempt by voters to access code <code>{{ vs.code }}</code> will display a gentle notification that this election was deleted.
+        </p>
+      </div>
+      <form method="POST" action="{{ url_for('admin_delete_system', code=vs.code) }}"
+            onsubmit="return confirm('ARE YOU SURE YOU WANT TO DELETE THIS ELECTION ({{ vs.name }})?\n\nThis action cannot be undone. Voters will no longer be able to cast ballots.');">
+        <button type="submit" class="btn small" style="background:#E53E3E; color:#FFFFFF; margin:0; width:auto; padding:9px 18px; border:none; font-weight:600;">
+          Delete Election
+        </button>
+      </form>
+    </div>
   </div>
 
 </div><!-- /card -->
